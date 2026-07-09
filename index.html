@@ -864,7 +864,65 @@
       async function syncData() { if (!isFirebaseInitialized || !currentUser || storageMode !== 'cloud') { showMessage("يجب تفعيل وضع السحابة وتسجيل الدخول أولاً", 'error'); return; } const t = translations[currentLang]; const saved = await saveAll(true); if (saved) showMessage(t.firebase.syncSuccess, 'success'); }
       function showLoginForm() { loginForm.classList.add('show'); } function hideLoginForm() { loginForm.classList.remove('show'); loginEmail.value = ''; loginPassword.value = ''; loginMessage.textContent = ''; }
       async function loginWithEmail() { const email = loginEmail.value.trim(); const password = loginPassword.value.trim(); if (!email || !password) { showMessage("الرجاء إدخال البريد الإلكتروني وكلمة المرور", 'error'); return; } try { await firebaseAuth.signInWithEmailAndPassword(email, password); showMessage(translations[currentLang].firebase.loginSuccess, 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ في تسجيل الدخول: ${error.message}`, 'error'); } }
-      async function async function registerWithEmail() {   const email = loginEmail.value.trim();   const password = loginPassword.value.trim();      if (!email || !password) {     showMessage("⚠️ الرجاء إدخال البريد الإلكتروني وكلمة المرور", 'error');     return;   }      if (password.length < 6) {     showMessage("⚠️ كلمة المرور يجب أن تكون 6 أحرف على الأقل", 'error');     return;   }      try {     showMessage("⏳ جاري إنشاء الحساب...", 'info');     const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);     const user = userCredential.user;          // ← تم الإضافة: حفظ بيانات المستخدم في قاعدة البيانات     await firebaseDb.ref('users/' + user.uid + '/profile').set({       email: email,       createdAt: new Date().toISOString(),       isAdmin: false     });          showMessage("✅ تم إنشاء الحساب بنجاح!", 'success');     hideLoginForm();          // ← تم الإضافة: تحديث المستخدم الحالي     currentUser = user;     updateFirebaseUI();        } catch (error) {     console.error("❌ خطأ في التسجيل:", error);          let errorMsg = "❌ حدث خطأ في التسجيل";          // رسائل خطأ مفهومة     switch(error.code) {       case 'auth/email-already-in-use':         errorMsg = "⚠️ هذا البريد الإلكتروني مستخدم مسبقاً";         break;       case 'auth/invalid-email':         errorMsg = "⚠️ البريد الإلكتروني غير صحيح";         break;       case 'auth/operation-not-allowed':         errorMsg = "⚠️ تسجيل الدخول بالبريد غير مفعل في Firebase";         break;       case 'auth/weak-password':         errorMsg = "⚠️ كلمة المرور ضعيفة جداً (6 أحرف على الأقل)";         break;       default:         errorMsg = `❌ خطأ: ${error.message}`;     }          showMessage(errorMsg, 'error');   } }() { const email = loginEmail.value.trim(); const password = loginPassword.value.trim(); if (!email || !password) { showMessage("الرجاء إدخال البيانات", 'error'); return; } if (password.length < 6) { showMessage("كلمة المرور قصيرة جداً", 'error'); return; } try { await firebaseAuth.createUserWithEmailAndPassword(email, password); showMessage(translations[currentLang].firebase.registerSuccess, 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
+      
+      // ===== دالة التسجيل المعدلة =====
+      async function registerWithEmail() {
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value.trim();
+        
+        if (!email || !password) {
+          showMessage("⚠️ الرجاء إدخال البريد الإلكتروني وكلمة المرور", 'error');
+          return;
+        }
+        
+        if (password.length < 6) {
+          showMessage("⚠️ كلمة المرور يجب أن تكون 6 أحرف على الأقل", 'error');
+          return;
+        }
+        
+        try {
+          showMessage("⏳ جاري إنشاء الحساب...", 'info');
+          const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+          
+          // حفظ بيانات المستخدم في قاعدة البيانات
+          await firebaseDb.ref('users/' + userCredential.user.uid + '/profile').set({
+            email: email,
+            createdAt: new Date().toISOString()
+          });
+          
+          showMessage("✅ تم إنشاء الحساب بنجاح!", 'success');
+          hideLoginForm();
+          
+          // تحديث المستخدم الحالي
+          currentUser = userCredential.user;
+          updateFirebaseUI();
+          
+        } catch (error) {
+          console.error("❌ خطأ في التسجيل:", error);
+          
+          let errorMsg = "❌ حدث خطأ في التسجيل";
+          
+          switch(error.code) {
+            case 'auth/email-already-in-use':
+              errorMsg = "⚠️ هذا البريد الإلكتروني مستخدم مسبقاً";
+              break;
+            case 'auth/invalid-email':
+              errorMsg = "⚠️ البريد الإلكتروني غير صحيح";
+              break;
+            case 'auth/operation-not-allowed':
+              errorMsg = "⚠️ تسجيل الدخول بالبريد غير مفعل في Firebase";
+              break;
+            case 'auth/weak-password':
+              errorMsg = "⚠️ كلمة المرور ضعيفة جداً (6 أحرف على الأقل)";
+              break;
+            default:
+              errorMsg = `❌ ${error.message}`;
+          }
+          
+          showMessage(errorMsg, 'error');
+        }
+      }
+
       async function loginAnonymously() { try { await firebaseAuth.signInAnonymously(); showMessage("تم الدخول كمجهول", 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
       async function logout() { try { await firebaseAuth.signOut(); showMessage(translations[currentLang].firebase.logoutSuccess, 'success'); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
       function showMessage(message, type = 'info') { const messageDiv = document.createElement('div'); messageDiv.textContent = message; messageDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-weight: bold; z-index: 10000; box-shadow: 0 3px 10px rgba(0,0,0,0.2); animation: slideIn 0.3s ease; max-width: 300px; white-space: nowrap;`; if (type === 'success') messageDiv.style.background = '#34a853'; else if (type === 'error') messageDiv.style.background = '#ea4335'; else messageDiv.style.background = '#4285f4'; document.body.appendChild(messageDiv); setTimeout(() => { messageDiv.style.animation = 'slideOut 0.3s ease'; setTimeout(() => { if (messageDiv.parentNode) document.body.removeChild(messageDiv); }, 300); }, 3000); }
