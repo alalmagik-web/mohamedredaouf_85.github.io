@@ -83,6 +83,12 @@
         .reset-all-btn { background: #dc2626; color: white; border: none; border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s; }
         .reset-all-btn:hover { background: #b91c1c; transform: scale(1.05); }
 
+        /* ===== أنماط جديدة لأزرار الأقسام ===== */
+        .btn-add-class { background: #8b5cf6; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-add-class:hover { background: #7c3aed; }
+        .btn-delete-class { background: #dc2626; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-delete-class:hover { background: #b91c1c; }
+
         #controls { text-align: center; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
         #controls input, #controls select, #controls button { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 12px; }
         .btn-add-student { background: #4f46e5; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 12px; }
@@ -329,7 +335,16 @@
         <button id="deleteTeacherBtn" class="btn-delete-teacher">🗑️ حذف</button>
         <button id="deleteAllTeachersBtn" class="btn-delete-teacher" title="حذف جميع المعلمين" style="border: 2px solid white;">💥 حذف الكل</button>
     </div>
-    <div class="control-group"><label for="classSelect">اختر القسم:</label><select id="classSelect"><option value="4B">رابع B</option><option value="4D">رابع D</option><option value="5B">خامس B</option><option value="5D">خامس D</option><option value="6B">سادس B</option><option value="6D">سادس D</option><option value="7B">سابع B</option><option value="7D">سابع D</option><option value="8B">ثامن B</option><option value="8D">ثامن D</option><option value="9B">تاسع B</option><option value="9D">تاسع D</option><option value="10B">عاشر B</option><option value="10D">عاشر D</option><option value="11B">حادي عشر B</option><option value="11D">حادي عشر D</option><option value="12B">ثاني عشر B</option><option value="12D">ثاني عشر D</option></select></div>
+    <div class="control-group">
+      <label for="classSelect">اختر القسم:</label>
+      <div style="display:flex; gap:4px; align-items:center;">
+        <select id="classSelect" style="flex:1;"><option value="4B">رابع B</option><option value="4D">رابع D</option><option value="5B">خامس B</option><option value="5D">خامس D</option><option value="6B">سادس B</option><option value="6D">سادس D</option><option value="7B">سابع B</option><option value="7D">سابع D</option><option value="8B">ثامن B</option><option value="8D">ثامن D</option><option value="9B">تاسع B</option><option value="9D">تاسع D</option><option value="10B">عاشر B</option><option value="10D">عاشر D</option><option value="11B">حادي عشر B</option><option value="11D">حادي عشر D</option><option value="12B">ثاني عشر B</option><option value="12D">ثاني عشر D</option></select>
+        <!-- ===== زر إضافة قسم ===== -->
+        <button id="addClassBtn" class="btn-add-class" title="إضافة قسم جديد"><i class="fas fa-plus-circle"></i> إضافة</button>
+        <!-- ===== زر حذف قسم ===== -->
+        <button id="deleteClassBtn" class="btn-delete-class" title="حذف القسم الحالي"><i class="fas fa-trash-alt"></i> حذف</button>
+      </div>
+    </div>
   </div>
 
   <div id="teacherCardContainer"></div>
@@ -489,6 +504,120 @@
     
     document.addEventListener("DOMContentLoaded", () => {
       const defaultTeachers = [{ id: 't1', name: "عبدالله الزهراني", subject: "اجتماعيات", icon: "fa-globe" }, { id: 't2', name: "معاذ الشيخ", subject: "فنية", icon: "fa-palette" }, { id: 't3', name: "خالد المالكي", subject: "لغة عربية", icon: "fa-book" }, { id: 't4', name: "محمد رضا", subject: "لغتي", icon: "fa-language" }, { id: 't5', name: "مشعل التويم", subject: "تربية إسلامية", icon: "fa-moon" }, { id: 't6', name: "عبدالهادي الشهري", subject: "تربية إسلامية", icon: "fa-moon" }, { id: 't7', name: "عبدالرحمن الزهراني", subject: "تربية إسلامية", icon: "fa-moon" }];
+      
+      // ===== قائمة الأقسام الديناميكية =====
+      const defaultClasses = ['4B', '4D', '5B', '5D', '6B', '6D', '7B', '7D', '8B', '8D', '9B', '9D', '10B', '10D', '11B', '11D', '12B', '12D'];
+      const CLASSES_STORAGE_KEY = 'classes_list';
+      
+      // تحميل الأقسام من التخزين المحلي
+      let classesList = JSON.parse(localStorage.getItem(CLASSES_STORAGE_KEY)) || defaultClasses;
+      
+      // ===== دالة حفظ الأقسام =====
+      function saveClassesList() {
+          localStorage.setItem(CLASSES_STORAGE_KEY, JSON.stringify(classesList));
+      }
+      
+      // ===== دالة تحديث قائمة الأقسام في الواجهة =====
+      function updateClassSelect() {
+          const classSelect = document.getElementById('classSelect');
+          const currentValue = classSelect.value;
+          classSelect.innerHTML = '';
+          
+          classesList.forEach(cls => {
+              const option = document.createElement('option');
+              option.value = cls;
+              option.textContent = cls;
+              classSelect.appendChild(option);
+          });
+          
+          // محاولة استعادة القيمة السابقة
+          if (classesList.includes(currentValue)) {
+              classSelect.value = currentValue;
+          } else if (classesList.length > 0) {
+              classSelect.value = classesList[0];
+          }
+          
+          // تحديث التيار
+          if (currentClass && !classesList.includes(currentClass)) {
+              currentClass = null;
+          }
+      }
+      
+      // ===== دالة إضافة قسم جديد =====
+      function addNewClass() {
+          const newClass = prompt('📚 أدخل اسم القسم الجديد (مثال: 3A أو 4C أو 5B):');
+          
+          if (!newClass) return; // المستخدم ألغى
+          
+          const trimmedClass = newClass.trim().toUpperCase();
+          
+          if (!trimmedClass) {
+              showMessage('❌ الرجاء إدخال اسم قسم صحيح', 'error');
+              return;
+          }
+          
+          if (classesList.includes(trimmedClass)) {
+              showMessage(`⚠️ القسم ${trimmedClass} موجود مسبقاً`, 'error');
+              return;
+          }
+          
+          classesList.push(trimmedClass);
+          saveClassesList();
+          updateClassSelect();
+          document.getElementById('classSelect').value = trimmedClass;
+          
+          // تحديث القسم الحالي
+          currentClass = trimmedClass;
+          
+          showMessage(`✅ تم إضافة القسم ${trimmedClass} بنجاح`, 'success');
+          
+          // تحميل البيانات للقسم الجديد
+          if (currentTeacherId) {
+              loadData();
+          }
+      }
+      
+      // ===== دالة حذف قسم =====
+      function deleteCurrentClass() {
+          const classSelect = document.getElementById('classSelect');
+          const classToDelete = classSelect.value;
+          
+          if (!classToDelete) {
+              showMessage('⚠️ الرجاء اختيار قسم للحذف', 'error');
+              return;
+          }
+          
+          if (classesList.length <= 1) {
+              showMessage('❌ لا يمكن حذف القسم الأخير، يجب أن يبقى قسم واحد على الأقل', 'error');
+              return;
+          }
+          
+          const confirmDelete = confirm(`🗑️ هل أنت متأكد من حذف القسم "${classToDelete}"؟\n⚠️ سيتم حذف جميع بيانات هذا القسم!`);
+          
+          if (!confirmDelete) return;
+          
+          // حذف القسم من القائمة
+          classesList = classesList.filter(cls => cls !== classToDelete);
+          saveClassesList();
+          updateClassSelect();
+          
+          // إذا كان القسم الحالي هو المحذوف، نختار أول قسم
+          if (currentClass === classToDelete) {
+              currentClass = classesList[0] || null;
+          }
+          
+          showMessage(`✅ تم حذف القسم ${classToDelete} بنجاح`, 'success');
+          
+          // إعادة تحميل البيانات
+          if (currentTeacherId && currentClass) {
+              loadData();
+          } else {
+              // تحديث الواجهة
+              initStudentsUI();
+              updateTable();
+          }
+      }
+
       const classOptions = { '4B': { ar: 'رابع B', en: '4th B' }, '4D': { ar: 'رابع D', en: '4th D' }, '5B': { ar: 'خامس B', en: '5th B' }, '5D': { ar: 'خامس D', en: '5th D' }, '6B': { ar: 'سادس B', en: '6th B' }, '6D': { ar: 'سادس D', en: '6th D' }, '7B': { ar: 'سابع B', en: '7th B' }, '7D': { ar: 'سابع D', en: '7th D' }, '8B': { ar: 'ثامن B', en: '8th B' }, '8D': { ar: 'ثامن D', en: '8th D' }, '9B': { ar: 'تاسع B', en: '9th B' }, '9D': { ar: 'تاسع D', en: '9th D' }, '10B': { ar: 'عاشر B', en: '10th B' }, '10D': { ar: 'عاشر D', en: '10th D' }, '11B': { ar: 'حادي عشر B', en: '11th B' }, '11D': { ar: 'حادي عشر D', en: '11th D' }, '12B': { ar: 'ثاني عشر B', en: '12th B' }, '12D': { ar: 'ثاني عشر D', en: '12th D' } };
 
       // === دالة النصوص الديناميكية ===
@@ -595,6 +724,10 @@
 
       // عناصر DOM
       const teacherSelect = document.getElementById("teacherSelect"); const classSelect = document.getElementById("classSelect"); const teacherCardContainer = document.getElementById("teacherCardContainer"); const boardTitleEl = document.getElementById("boardTitleText"); const boardTitleContainer = document.getElementById("boardTitle"); const currentDateDisplayEl = document.getElementById("currentDateDisplay"); const classTitleInput = document.getElementById("classTitle"); const studentsContainer = document.getElementById("students"); const table = document.getElementById("report"); const tbody = table.querySelector("tbody"); const newTeacherNameInput = document.getElementById("newTeacherName"); const newTeacherSubjectSelect = document.getElementById("newTeacherSubject"); const addTeacherBtn = document.getElementById("addTeacherBtn"); const deleteTeacherBtn = document.getElementById("deleteTeacherBtn"); const deleteAllTeachersBtn = document.getElementById("deleteAllTeachersBtn"); const importTeachersInput = document.getElementById("importTeachersExcel"); const importTeachersLabel = document.getElementById("importTeachersLabel"); const newStudentNameInput = document.getElementById("newStudentName"); const addStudentBtn = document.getElementById("addStudentBtn");
+      
+      // ===== أزرار الأقسام الجديدة =====
+      const addClassBtn = document.getElementById("addClassBtn");
+      const deleteClassBtn = document.getElementById("deleteClassBtn");
 
       const useLocalBtn = document.getElementById("useLocalBtn"); const useCloudBtn = document.getElementById("useCloudBtn"); const syncDataBtn = document.getElementById("syncDataBtn"); const loginBtn = document.getElementById("loginBtn"); const firebaseStatus = document.getElementById("firebaseStatus"); const loginForm = document.getElementById("loginForm"); const loginEmail = document.getElementById("loginEmail"); const loginPassword = document.getElementById("loginPassword"); const submitLogin = document.getElementById("submitLogin"); const registerBtn = document.getElementById("registerBtn"); const anonLogin = document.getElementById("anonLogin"); const cancelLogin = document.getElementById("cancelLogin"); const loginMessage = document.getElementById("loginMessage"); const calendarTitle = document.getElementById("calendarTitle"); const calendarGrid = document.getElementById("calendarGrid"); const prevMonthBtn = document.getElementById("prevMonth"); const nextMonthBtn = document.getElementById("nextMonth"); const calendarWrapper = document.getElementById("calendarWrapper"); const toggleCalendarBtn = document.getElementById("toggleCalendarBtn");
       const resetAllCountersBtn = document.getElementById("resetAllCountersBtn");
@@ -1570,6 +1703,13 @@
       document.getElementById('showYearReportBtn').addEventListener('click', exportFullHistoryExcel);
       
       document.addEventListener('keydown', async (e) => { if (!selectedStudent) return; if (e.key === '1') await setStudentState(selectedStudent, 1); if (e.key === '2') await setStudentState(selectedStudent, 2); if (e.key === '3') await setStudentState(selectedStudent, 3); if (e.key === '4') await setStudentState(selectedStudent, 4); if (e.key === '5') await setStudentState(selectedStudent, 5); if (e.key === '0') await setStudentState(selectedStudent, 0); if (e.key === 'l' || e.key === 'L') await incrementCounter(selectedStudent, 'latenessCounter', 'msgLateness'); if (e.key.toLowerCase() === 'r') await resetStudentCounters(selectedStudent); if (e.key === 'Escape') { const t = document.querySelector(`.student[data-name="${selectedStudent}"]`); if (t) t.classList.remove('selected'); selectedStudent = null; } });
+
+      // ===== ربط أزرار الأقسام الجديدة =====
+      addClassBtn.addEventListener("click", addNewClass);
+      deleteClassBtn.addEventListener("click", deleteCurrentClass);
+
+      // ===== تحديث قائمة الأقسام عند التحميل =====
+      updateClassSelect();
 
       initTeacherSelect(); applyLanguage(currentLang); renderCalendar(); if (isFirebaseInitialized) { initializeFirebaseAuth(); updateFirebaseUI(); }
 
