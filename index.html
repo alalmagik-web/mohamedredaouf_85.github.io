@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام متابعة المعلمين والطلاب - محمد رضا</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- إضافة ExcelJS للتصدير الملون -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    
+    <!-- إضافة Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #f3f4f6; color: #111; transition: all 0.3s ease; }
+
+        /* أنماط Firebase */
+        .firebase-section { background: linear-gradient(135deg, #ff6b6b, #ffa726); color: white; padding: 12px 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 3px 5px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+        .firebase-section h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .firebase-section h3 i { font-size: 1.3rem; }
+        .firebase-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .firebase-btn { padding: 6px 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 12px; transition: all 0.3s; display: flex; align-items: center; gap: 5px; }
+        .btn-cloud { background: #4285f4; color: white; } .btn-cloud:hover { background: #3367d6; }
+        .btn-local { background: #34a853; color: white; } .btn-local:hover { background: #2e8b47; }
+        .btn-sync { background: #fbbc05; color: #000; } .btn-sync:hover { background: #e6ac00; }
+        .btn-login { background: #ea4335; color: white; } .btn-login:hover { background: #d33426; }
+        .firebase-status { background: rgba(255, 255, 255, 0.2); padding: 6px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+        .firebase-status.online { background: rgba(52, 168, 83, 0.3); border-left: 3px solid #34a853; }
+        .firebase-status.offline { background: rgba(234, 67, 53, 0.3); border-left: 3px solid #ea4335; }
+        .firebase-login-form { background: white; padding: 15px; border-radius: 8px; margin-top: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.2); display: none; }
+        .firebase-login-form.show { display: block; }
+        .login-input-group { margin-bottom: 10px; }
+        .login-input-group label { display: block; margin-bottom: 5px; color: #4f46e5; font-weight: bold; font-size: 13px; }
+        .login-input-group input { width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 13px; }
+        .login-buttons { display: flex; gap: 8px; margin-top: 15px; }
+
+        /* أنماط التقويم */
+        .calendar-wrapper { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 3px 5px rgba(0,0,0,0.05); display: none; animation: fadeIn 0.3s ease; position: relative; z-index: 100; }
+        .calendar-wrapper.show { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-header h3 { font-size: 1.1rem; color: #4f46e5; }
+        .calendar-nav-btn { background: #e0e7ff; border: none; color: #4f46e5; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .calendar-nav-btn:hover { background: #c7d2fe; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .calendar-day-name { font-weight: bold; font-size: 12px; color: #6b7280; padding: 5px 0; }
+        .day-cell { padding: 8px 0; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; background: #f9fafb; user-select: none; }
+        .day-cell:hover { background: #e0e7ff; color: #4f46e5; }
+        .day-cell.today { border: 2px solid #818cf8; font-weight: bold; }
+        .day-cell.active { background: #4f46e5; color: white; font-weight: bold; box-shadow: 0 2px 5px rgba(79, 70, 229, 0.4); }
+        .day-cell.empty { background: transparent; cursor: default; }
+
+        /* الأنماط العامة */
+        #languageToggle { text-align: center; margin-bottom: 12px; }
+        #languageToggle button { padding: 5px 10px; margin: 0 4px; border-radius: 5px; border: 1px solid #4f46e5; background: white; color: #4f46e5; cursor: pointer; font-weight: bold; font-size: 13px; }
+        #languageToggle button.active { background: #4f46e5; color: white; }
+        .top-section { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: flex-end; margin-bottom: 15px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 3px 5px rgba(0,0,0,0.05); }
+        .control-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+        .control-group label { font-weight: bold; color: #4f46e5; font-size: 13px; }
+        select, input[type="text"] { padding: 8px; border-radius: 6px; border: 2px solid #e5e7eb; font-size: 13px; background: white; cursor: pointer; width: 100%; }
+        .btn-add-teacher { background: #059669; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-delete-teacher { background: #dc2626; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-import-teachers { background: #059669; color: white; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px; }
+        .btn-import-teachers:hover { background: #047857; }
+        .teacher-card { display: flex; align-items: center; background: linear-gradient(135deg, #4f46e5, #818cf8); color: white; padding: 15px; border-radius: 10px; box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.1); margin-bottom: 20px; animation: fadeInUp 0.5s forwards; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .teacher-icon { font-size: 2rem; background: rgba(255, 255, 255, 0.2); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
+        [dir="rtl"] .teacher-icon { margin-left: 15px; } [dir="ltr"] .teacher-icon { margin-right: 15px; }
+        .teacher-info h3 { margin: 0; font-size: 1.2rem; }
+        .teacher-info p { margin: 3px 0 0; opacity: 0.9; font-size: 1rem; }
+        h2 { text-align: center; margin-bottom: 12px; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .calendar-toggle-btn { background: none; border: none; cursor: pointer; color: #4f46e5; font-size: 1.4rem; transition: transform 0.2s; }
+        .calendar-toggle-btn:hover { transform: scale(1.1); color: #6366f1; }
+        .current-date-display { background: #e0e7ff; color: #4f46e5; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; }
+        /* زر العام الجديد */
+        .year-report-btn { background: #6366f1; color: white; border: none; border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s; }
+        .year-report-btn:hover { background: #4f46e5; transform: scale(1.05); }
+        /* زر تصفير الكل */
+        .reset-all-btn { background: #dc2626; color: white; border: none; border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s; }
+        .reset-all-btn:hover { background: #b91c1c; transform: scale(1.05); }
+
+        #controls { text-align: center; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        #controls input, #controls select, #controls button { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 12px; }
+        .btn-add-student { background: #4f46e5; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 12px; }
+        #importExcelLabel { cursor: pointer; background: #4f46e5; color: white; padding: 6px 10px; border-radius: 6px; display: inline-block; font-size: 12px; }
+        #exportExcel { background: #059669; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 12px; }
+        #students { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .student-container { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .student { width: 100%; background: #4f46e5; color: white; border-radius: 8px; text-align: center; padding: 12px 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: transform 0.2s, opacity 0.2s, background-color 0.5s ease; box-shadow: 0 3px 5px rgba(0,0,0,0.1); position: relative; z-index: 1; }
+        .student:hover { transform: translateY(-2px); opacity: 0.95; }
+        .student.selected { border: 2px solid #ffd700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); transform: translateY(-2px); }
+        .quick-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: 100%; }
+        .quick-controls button { border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid white; font-weight: bold; }
+        .quick-controls button:hover { transform: scale(1.1); box-shadow: 0 3px 6px rgba(0,0,0,0.2); }
+        .quick-controls button:active { transform: scale(0.9); box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+        .btn-participate { background: #22c55e; color: white; }
+        .btn-talk { background: #f59e0b; color: #000; }
+        .btn-no-part { background: #6366f1; color: white; }
+        .btn-behavior { background: #000000; color: white; }
+        .btn-absent { background: #ef4444; color: white; }
+        .btn-lateness { background: #a855f7; color: white; }
+        .btn-reset { background: #3b82f6; color: white; }
+        .btn-book { background: #10b981; color: white; } 
+        .btn-notebook { background: #6366f1; color: white; } 
+        .btn-homework { background: #3b82f6; color: white; } 
+        .btn-delete-student { background: #ef4444; color: white; border-radius: 4px; width: auto; padding: 0 6px; font-size: 11px; } 
+        /* زر التعديل الجديد */
+        .btn-edit-student { background: #f59e0b; color: white; border-radius: 4px; width: auto; padding: 0 6px; font-size: 11px; }
+        .table-container { overflow-x: auto; margin: 15px 0; border-radius: 8px; box-shadow: 0 3px 5px rgba(0,0,0,0.1); font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; background: white; min-width: 1200px; }
+        th, td { border: 1px solid #ddd; padding: 6px 5px; text-align: center; font-size: 11px; white-space: nowrap; height: 50px; }
+        th { background: #e0e7ff; font-weight: bold; position: sticky; top: 0; z-index: 10; font-size: 11px; }
+        td { vertical-align: middle; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        tr:hover { background-color: #f1f5f9; }
+        select { width: 100%; padding: 4px; border-radius: 3px; border: 1px solid #ccc; background: white; font-size: 11px; }
+        .stars { font-size: 13px; margin-bottom: 1px; }
+        .stars-count { display: block; font-size: 10px; color: #666; font-weight: bold; }
+        
+        /* تنسيق النصوص الديناميكية */
+        .status-text-cell { 
+            font-size: 11px; 
+            padding: 2px !important; 
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .cell-wrapper { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            gap: 4px; 
+        }
+        .action-label { 
+            font-size: 10px; 
+            font-weight: 800; 
+            line-height: 1.2; 
+            text-align: center; 
+            width: 100%;
+        }
+        .counter-value { 
+            font-size: 14px; 
+            font-weight: 900; 
+            color: #1f2937;
+            background: rgba(255,255,255,0.5);
+            padding: 1px 6px;
+            border-radius: 10px;
+        }
+
+        .text-gift { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .text-warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .text-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .text-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .text-neutral { background: #f3f4f6; color: #374151; font-weight: normal; }
+
+        #trophyPopup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 150px; opacity: 0; transition: all 0.6s ease; z-index: 9999; pointer-events: none; text-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+        #trophyPopup.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .check-cell { cursor: pointer; padding: 6px !important; }
+        .check-cell-content { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .check-icon { font-size: 16px; margin-bottom: 2px; }
+        .check-icon.active { color: #22c55e; }
+        .check-icon.inactive { color: #ef4444; }
+        .check-counter { display: block; font-size: 10px; color: #666; font-weight: bold; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; min-width: 25px; }
+        .table-quick-actions { display: flex; gap: 3px; margin-top: 3px; justify-content: center; flex-wrap: wrap; }
+        .table-quick-actions button { background: #e0e7ff; border: 1px solid #a5b4fc; border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; color: #4f46e5; font-weight: bold; }
+        .table-quick-actions button:hover { background: #c7d2fe; transform: scale(1.05); }
+        .table-counter-btn { background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold; margin: 1px; }
+        .table-counter-btn:hover { background: #fecaca; }
+        .level-عبقري, .level-Genius { color: #9333ea; font-weight: bold; }
+        .level-موهوب, .level-Talented { color: #2563eb; font-weight: bold; }
+        .level-متفوق, .level-Excellent { color: #059669; font-weight: bold; }
+        .level-ممتاز, .level-VeryGood { color: #16a34a; font-weight: bold; }
+        .level-جيد, .level-Good { color: #ca8a04; font-weight: bold; }
+        .level-منخفض, .level-Low { color: #dc2626; font-weight: bold; }
+        .progress-percentage { font-weight: bold; font-size: 12px; color: #7c3aed; background: #f5f3ff; padding: 4px; border-radius: 4px; }
+        .copyright-footer { text-align: center; margin-top: 20px; padding: 10px; color: #666; font-size: 12px; border-top: 1px solid #e5e7eb; background: white; border-radius: 8px; }
+
+        /* أنماط النافذة المنبثقة للتعديل */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-content h3 {
+            color: #4f46e5;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .modal-field {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-field label {
+            width: 120px;
+            font-weight: bold;
+            font-size: 12px;
+            color: #333;
+        }
+        .modal-field input, .modal-field select {
+            flex: 1;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .modal-field input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .modal-field input[type="number"]::-webkit-inner-spin-button {
+            opacity: 1;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .modal-save {
+            background: #4f46e5;
+            color: white;
+        }
+        .modal-cancel {
+            background: #9ca3af;
+            color: white;
+        }
+
+        @media (max-width: 768px) { body { padding: 8px; } #controls, .top-section { flex-direction: column; } #controls input, #controls button, .top-section input, .top-section select, .top-section button { width: 100%; } th, td { padding: 5px 4px; font-size: 10px; } .table-container { border-radius: 6px; } .firebase-section { flex-direction: column; align-items: stretch; } .firebase-controls { justify-content: center; } .day-cell { padding: 5px 0; font-size: 12px; } }
+        [dir="rtl"] .control-group label, [dir="rtl"] #boardTitle, [dir="rtl"] .copyright-footer { text-align: right; }
+        [dir="ltr"] .control-group label, [dir="ltr"] #boardTitle, [dir="ltr"] .copyright-footer { text-align: left; }
+        [dir="ltr"] .top-section { flex-direction: row; }
+        [dir="ltr"] .student { text-align: center; }
+        [dir="ltr"] table th { text-align: center; }
+    </style>
+</head>
+
+<body>
+  <!-- قسم Firebase -->
+  <div class="firebase-section">
+    <h3><i class="fas fa-cloud"></i> التخزين السحابي Firebase - مشروع محمد رضا</h3>
+    <div class="firebase-controls">
+      <button id="useLocalBtn" class="firebase-btn btn-local"><i class="fas fa-hdd"></i> تخزين محلي</button>
+      <button id="useCloudBtn" class="firebase-btn btn-cloud"><i class="fas fa-cloud"></i> تخزين سحابي</button>
+      <button id="syncDataBtn" class="firebase-btn btn-sync"><i class="fas fa-sync-alt"></i> مزامنة البيانات</button>
+      <button id="loginBtn" class="firebase-btn btn-login"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
+      <div id="firebaseStatus" class="firebase-status offline"><i class="fas fa-wifi"></i> غير متصل</div>
+    </div>
+  </div>
+
+  <!-- نموذج تسجيل الدخول -->
+  <div id="loginForm" class="firebase-login-form">
+    <div class="login-input-group"><label for="loginEmail">البريد الإلكتروني</label><input type="email" id="loginEmail" placeholder="example@email.com"></div>
+    <div class="login-input-group"><label for="loginPassword">كلمة المرور</label><input type="password" id="loginPassword" placeholder="أدخل كلمة المرور"></div>
+    <div class="login-buttons">
+      <button id="submitLogin" class="firebase-btn btn-cloud"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
+      <button id="registerBtn" class="firebase-btn btn-local"><i class="fas fa-user-plus"></i> حساب جديد</button>
+      <button id="anonLogin" class="firebase-btn btn-sync"><i class="fas fa-user-secret"></i> دخول كمجهول</button>
+      <button id="cancelLogin" class="firebase-btn btn-login"><i class="fas fa-times"></i> إلغاء</button>
+    </div>
+    <div id="loginMessage" style="margin-top: 10px; font-size: 12px;"></div>
+  </div>
+
+  <!-- تبديل اللغة -->
+  <div id="languageToggle">
+    <button id="switchToAr" class="active">العربية</button>
+    <button id="switchToEn">English</button>
+  </div>
+
+  <!-- قسم التقويم -->
+  <div class="calendar-wrapper" id="calendarWrapper">
+    <div class="calendar-header">
+      <button class="calendar-nav-btn" id="prevMonth"><i class="fas fa-chevron-right"></i></button>
+      <h3 id="calendarTitle">أكتوبر 2023</h3>
+      <button class="calendar-nav-btn" id="nextMonth"><i class="fas fa-chevron-left"></i></button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div style="text-align:center; margin-top:10px;">
+        <button class="firebase-btn btn-login" onclick="document.getElementById('calendarWrapper').classList.remove('show')" style="margin:0 auto;">إغلاق التقويم</button>
+    </div>
+  </div>
+
+  <!-- القسم العلوي -->
+  <div class="top-section">
+    <div class="control-group"><label for="teacherSelect">اختر المعلم:</label><select id="teacherSelect"><option value="" disabled selected>-- اختر المعلم --</option></select></div>
+    <div class="control-group">
+      <label>إدارة المعلمين:</label>
+      <div style="display:flex; gap:4px;">
+        <input type="text" id="newTeacherName" placeholder="اسم المعلم...">
+        <select id="newTeacherSubject"><option value="" disabled selected>المادة</option><option value="اجتماعيات">اجتماعيات</option><option value="فنية">فنية</option><option value="لغة عربية">لغة عربية</option><option value="لغتي">لغتي</option><option value="تربية إسلامية">تربية إسلامية</option><option value="رياضيات">رياضيات</option><option value="علوم">علوم</option></select>
+      </div>
+    </div>
+    <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: flex-end;">
+        <button id="addTeacherBtn" class="btn-add-teacher">➕ إضافة معلم</button>
+        <label for="importTeachersExcel" id="importTeachersLabel" class="btn-import-teachers" title="تحميل أسماء المعلمين من ملف Excel"><i class="fas fa-file-excel"></i> تحميل معلمين</label>
+        <input type="file" id="importTeachersExcel" accept=".xlsx" style="display:none;">
+        <button id="deleteTeacherBtn" class="btn-delete-teacher">🗑️ حذف</button>
+        <button id="deleteAllTeachersBtn" class="btn-delete-teacher" title="حذف جميع المعلمين" style="border: 2px solid white;">💥 حذف الكل</button>
+    </div>
+    <div class="control-group"><label for="classSelect">اختر القسم:</label><select id="classSelect"><option value="4B">رابع B</option><option value="4D">رابع D</option><option value="5B">خامس B</option><option value="5D">خامس D</option><option value="6B">سادس B</option><option value="6D">سادس D</option><option value="7B">سابع B</option><option value="7D">سابع D</option><option value="8B">ثامن B</option><option value="8D">ثامن D</option><option value="9B">تاسع B</option><option value="9D">تاسع D</option><option value="10B">عاشر B</option><option value="10D">عاشر D</option><option value="11B">حادي عشر B</option><option value="11D">حادي عشر D</option><option value="12B">ثاني عشر B</option><option value="12D">ثاني عشر D</option></select></div>
+  </div>
+
+  <div id="teacherCardContainer"></div>
+  
+  <h2 id="boardTitle">
+    <button class="calendar-toggle-btn" id="toggleCalendarBtn" title="فتح التقويم"><i class="far fa-calendar-alt"></i></button>
+    <span id="boardTitleText">📋 لوحة متابعة المعلم</span>
+    <span id="currentDateDisplay" class="current-date-display"></span>
+    <!-- زر تقرير العام (Excel) -->
+    <button id="showYearReportBtn" class="year-report-btn" title="تقرير شامل لكل الأيام"><i class="fas fa-file-excel"></i> عام</button>
+    <!-- زر إعادة جميع العدادات للصفر -->
+    <button id="resetAllCountersBtn" class="reset-all-btn" title="إعادة جميع العدادات للصفر"><i class="fas fa-undo-alt"></i> تصفير الكل</button>
+  </h2>
+
+  <div id="controls">
+    <input type="text" id="newStudentName" placeholder="أضف طالباً يدوياً...">
+    <button id="addStudentBtn" class="btn-add-student">➕ إضافة طالب</button>
+    <label for="importExcel" id="importExcelLabel">📥 تحميل أسماء من Excel</label>
+    <input type="file" id="importExcel" accept=".xlsx" style="display:none;">
+    <button id="exportExcel">📤 تصدير Excel</button>
+    <input type="text" id="classTitle" placeholder="أدخل اسم القسم...">
+  </div>
+
+  <div id="students"></div>
+
+  <div class="table-container">
+    <table id="report">
+      <thead>
+        <tr>
+          <th data-key="name">الاسم</th>
+          <th data-key="rating">⭐ التقدير</th>
+          <th data-key="goodParticipation">مشاركة جيدة</th>
+          <th data-key="talkingInClass">يتحدث بالحصة</th>
+          <th data-key="notParticipating">لا يشارك</th>
+          <th data-key="behavior">سلوك</th>
+          <th data-key="lateness">تأخر</th>
+          <th data-key="attendance">الحضور</th>
+          <th data-key="book">📗 الكتاب</th>
+          <th data-key="notebook">📒 الدفتر</th>
+          <th data-key="homework">📘 الواجب</th>
+          <th data-key="notes">ملاحظات</th>
+          <th data-key="status">الحالة</th>
+          <th data-key="participationCounter">عداد المشاركة</th>
+          <th data-key="level">تحديد المستوى</th>
+          <th data-key="progressPercentage">نسبة التقدم</th>
+          <th data-key="absenceCounter">عداد الغياب</th>
+          <th data-key="talkingCounter">يتحدث بالحصة</th>
+          <th data-key="talkWithoutPermission">لايشارك</th>
+          <th data-key="bookNotActive">عدم إحضار الكتاب</th>
+          <th data-key="notebookNotActive">عدم إحضار الدفتر</th>
+          <th data-key="homeworkNotActive">عدم عمل الواجب</th>
+          <th data-key="badBehaviorCounter">عدد السلوكات</th>
+          <th data-key="latenessCounter">عداد التأخر</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="copyright-footer"><p id="copyrightFooter">📊 نظام متابعة المعلمين والطلاب - حقوق الملكية © 2026 محمد رضا عوف</p></div>
+  <div id="trophyPopup">🏆</div>
+
+  <!-- النافذة المنبثقة لتعديل بيانات الطالب -->
+  <div id="editModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="editModalTitle">تعديل بيانات الطالب</h3>
+      <div class="modal-field">
+        <label>الاسم:</label>
+        <span id="editStudentNameDisplay" style="font-weight:bold;"></span>
+      </div>
+      <div class="modal-field">
+        <label>الحالة (0-5):</label>
+        <input type="number" id="editState" min="0" max="5" step="1">
+      </div>
+      <div class="modal-field">
+        <label>📗 الكتاب:</label>
+        <select id="editBook">
+          <option value="true">✅ حاضر</option>
+          <option value="false">❌ غير حاضر</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>📒 الدفتر:</label>
+        <select id="editNotebook">
+          <option value="true">✅ حاضر</option>
+          <option value="false">❌ غير حاضر</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>📘 الواجب:</label>
+        <select id="editHomework">
+          <option value="true">✅ حاضر</option>
+          <option value="false">❌ غير حاضر</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>ملاحظات:</label>
+        <input type="text" id="editNote" placeholder="ملاحظة">
+      </div>
+      <div class="modal-field">
+        <label>عداد المشاركة:</label>
+        <input type="number" id="editParticipationCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد الغياب:</label>
+        <input type="number" id="editAbsenceCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد التأخر:</label>
+        <input type="number" id="editLatenessCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد السلوك:</label>
+        <input type="number" id="editBadBehaviorCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد التحدث:</label>
+        <input type="number" id="editTalkCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد لا يشارك:</label>
+        <input type="number" id="editTalkWithoutPermissionCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد عدم الكتاب:</label>
+        <input type="number" id="editBookNotActiveCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد عدم الدفتر:</label>
+        <input type="number" id="editNotebookNotActiveCounter" min="0" step="1">
+      </div>
+      <div class="modal-field">
+        <label>عداد عدم الواجب:</label>
+        <input type="number" id="editHomeworkNotActiveCounter" min="0" step="1">
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-save" id="editModalSave">💾 حفظ</button>
+        <button class="modal-cancel" id="editModalCancel">❌ إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== إعدادات Firebase الخاصة بمشروع محمد رضا =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyCTQUJV6erfDYbjId7xpuRDPwTmaGGk4e4",
+      authDomain: "mohamedreda-718c9.firebaseapp.com",
+      projectId: "mohamedreda-718c9",
+      storageBucket: "mohamedreda-718c9.firebasestorage.app",
+      messagingSenderId: "52176043182",
+      appId: "1:52176043182:web:fad310260cd179687c413f",
+      measurementId: "G-9QP9FDF9MR"
+    };
+    
+    let firebaseApp, firebaseAuth, firebaseDb; let isFirebaseInitialized = false;
+    try { firebaseApp = firebase.initializeApp(firebaseConfig); firebaseAuth = firebase.auth(); firebaseDb = firebase.database(); isFirebaseInitialized = true; console.log("Firebase initialized successfully for mohamedreda-718c9"); } catch (error) { console.log("Local storage only - Firebase init error:", error); }
+    
+    document.addEventListener("DOMContentLoaded", () => {
+      const defaultTeachers = [{ id: 't1', name: "عبدالله الزهراني", subject: "اجتماعيات", icon: "fa-globe" }, { id: 't2', name: "معاذ الشيخ", subject: "فنية", icon: "fa-palette" }, { id: 't3', name: "خالد المالكي", subject: "لغة عربية", icon: "fa-book" }, { id: 't4', name: "محمد رضا", subject: "لغتي", icon: "fa-language" }, { id: 't5', name: "مشعل التويم", subject: "تربية إسلامية", icon: "fa-moon" }, { id: 't6', name: "عبدالهادي الشهري", subject: "تربية إسلامية", icon: "fa-moon" }, { id: 't7', name: "عبدالرحمن الزهراني", subject: "تربية إسلامية", icon: "fa-moon" }];
+      const classOptions = { '4B': { ar: 'رابع B', en: '4th B' }, '4D': { ar: 'رابع D', en: '4th D' }, '5B': { ar: 'خامس B', en: '5th B' }, '5D': { ar: 'خامس D', en: '5th D' }, '6B': { ar: 'سادس B', en: '6th B' }, '6D': { ar: 'سادس D', en: '6th D' }, '7B': { ar: 'سابع B', en: '7th B' }, '7D': { ar: 'سابع D', en: '7th D' }, '8B': { ar: 'ثامن B', en: '8th B' }, '8D': { ar: 'ثامن D', en: '8th D' }, '9B': { ar: 'تاسع B', en: '9th B' }, '9D': { ar: 'تاسع D', en: '9th D' }, '10B': { ar: 'عاشر B', en: '10th B' }, '10D': { ar: 'عاشر D', en: '10th D' }, '11B': { ar: 'حادي عشر B', en: '11th B' }, '11D': { ar: 'حادي عشر D', en: '11th D' }, '12B': { ar: 'ثاني عشر B', en: '12th B' }, '12D': { ar: 'ثاني عشر D', en: '12th D' } };
+
+      // === دالة النصوص الديناميكية ===
+      function getDynamicStatus(type, count) {
+        count = parseInt(count) || 0;
+        let text = "";
+        let styleClass = "text-neutral";
+
+        if (type === 'participation') {
+            if (count >= 15) { text = "🏆 وسام نجم الأسبوع"; styleClass = "text-gift"; }
+            else if (count >= 12) { text = "🎁 اختيار سؤال للطلاب أو مساعدة المعلم"; styleClass = "text-gift"; }
+            else if (count >= 9) { text = "👑 قائد الحصة لمدة 10 دقائق"; styleClass = "text-gift"; }
+            else if (count >= 6) { text = "🏅 اختيار لعبة تعليمية للحصة القادمة"; styleClass = "text-gift"; }
+            else if (count >= 3) { text = "⭐ نقطة بطل الحصة"; styleClass = "text-gift"; }
+            else { text = "نشاط"; styleClass = "text-neutral"; }
+        }
+        else if (type === 'talking') {
+            if (count >= 8) { text = "🔴 متابعة إدارية"; styleClass = "text-danger"; }
+            else if (count >= 6) { text = "📝 كتابة تعهد بالالتزام"; styleClass = "text-danger"; }
+            else if (count >= 4) { text = "🔁 تغيير مكان"; styleClass = "text-warn"; }
+            else if (count >= 2) { text = "⚠ تنبيه شفهي"; styleClass = "text-warn"; }
+            else { text = "تحدث"; styleClass = "text-neutral"; }
+        }
+        else if (type === 'not_participating') {
+            if (count >= 9) { text = "🔴 متابعة إدارية"; styleClass = "text-danger"; }
+            else if (count >= 7) { text = "📝 مهمة بسيطة أمام الفصل"; styleClass = "text-warn"; }
+            else if (count >= 5) { text = "✋ اختياره للإجابة أولًا بالحصة"; styleClass = "text-info"; }
+            else if (count >= 3) { text = "⚠ تنبيه للمشاركة"; styleClass = "text-warn"; }
+            else { text = "نشاط"; styleClass = "text-neutral"; }
+        }
+        else if (type === 'behavior') {
+            if (count >= 12) { text = "🔴 تحويل للإدارة"; styleClass = "text-danger"; }
+            else if (count >= 9) { text = "📞 إشعار ولي الأمر"; styleClass = "text-danger"; }
+            else if (count >= 7) { text = "📝 كتابة اعتذار"; styleClass = "text-warn"; }
+            else if (count >= 5) { text = "تغيير مكان"; styleClass = "text-warn"; }
+            else if (count >= 3) { text = "تنبيه"; styleClass = "text-warn"; }
+            else { text = "سلوك"; styleClass = "text-neutral"; }
+        }
+        else if (type === 'absence') {
+            if (count === 0) { text = "⭐ نجم الانضباط"; styleClass = "text-gift"; }
+            else if (count >= 7) { text = "متابعة إدارية"; styleClass = "text-danger"; }
+            else if (count >= 5) { text = "إشعار ولي الأمر"; styleClass = "text-danger"; }
+            else if (count >= 3) { text = "ملاحظة"; styleClass = "text-warn"; }
+            else if (count >= 1) { text = "تنبيه"; styleClass = "text-warn"; }
+            else { text = "حضور"; styleClass = "text-neutral"; }
+        }
+        else if (['book', 'notebook', 'homework'].includes(type)) {
+            if (count >= 8) { text = "متابعة إدارية"; styleClass = "text-danger"; }
+            else if (count >= 6) { text = "إشعار ولي الأمر"; styleClass = "text-danger"; }
+            else if (count >= 4) { text = "ملاحظة"; styleClass = "text-warn"; }
+            else if (count >= 2) { text = "تنبيه"; styleClass = "text-warn"; }
+            else { text = "جاهز"; styleClass = "text-gift"; }
+        }
+        else if (type === 'lateness') {
+            if (count >= 5) { text = "🔴 حرمان من الحصة"; styleClass = "text-danger"; }
+            else if (count >= 3) { text = "📞 إشعار ولي أمر"; styleClass = "text-warn"; }
+            else if (count >= 1) { text = "⏰ ملاحظة تأخير"; styleClass = "text-warn"; }
+            else { text = "في الوقت"; styleClass = "text-gift"; }
+        }
+        
+        return { text: text, class: styleClass, count: count };
+      }
+
+      // دوال الترجمة
+      const arabicToEnglishTransliteration = (arabicName) => {
+        if (!arabicName || arabicName.trim() === '') return arabicName;
+        const trimmedName = arabicName.trim();
+        const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(trimmedName);
+        const hasEnglish = /[A-Za-z]/.test(trimmedName);
+        if (!hasArabic && hasEnglish) return trimmedName;
+        const parts = trimmedName.split(/\s+/);
+        const translatedParts = parts.map(part => {
+          part = part.trim(); if (!part) return '';
+          if (!/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(part)) return part;
+          const charMap = { 'ا': 'a', 'أ': 'a', 'إ': 'e', 'آ': 'aa', 'ء': '', 'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h', 'و': 'w', 'ؤ': 'w', 'ي': 'y', 'ى': 'a', 'ئ': 'e', 'ة': 'h', 'ڤ': 'v', 'پ': 'p', 'چ': 'ch', 'ژ': 'zh', 'گ': 'g', 'َ': '', 'ً': '', 'ُ': '', 'ٌ': '', 'ِ': '', 'ٍ': '', 'ْ': '', 'ّ': '' };
+          const specialWords = { 'عبدالله': 'Abdullah', 'عبد الله': 'Abdullah', 'عبدالرحمن': 'Abdulrahman', 'عبد الرحمن': 'Abdulrahman', 'عبدالعزيز': 'Abdulaziz', 'عبد العزيز': 'Abdulaziz', 'عبدالهادي': 'Abdulhadi', 'عبد الهادي': 'Abdulhadi' };
+          if (specialWords[part]) return specialWords[part];
+          if (part.startsWith('ال') && part.length > 2) { const withoutAl = part.substring(2); return `Al-${transliterateWord(withoutAl, charMap)}`; }
+          if (part.startsWith('آل') && part.length > 2) { const withoutAl = part.substring(2); return `Al-${transliterateWord(withoutAl, charMap)}`; }
+          if (part.startsWith('عبد') && part.length > 3) { const remaining = part.substring(3); const abdSpecialCases = { 'الله': 'Allah', 'الرحمن': 'Rahman', 'العزيز': 'Aziz', 'الهادي': 'Hadi' }; if (abdSpecialCases[remaining]) return `Abdul${abdSpecialCases[remaining]}`; return `Abdul${transliterateWord(remaining, charMap)}`; }
+          return transliterateWord(part, charMap);
+        }).filter(part => part !== '');
+        return translatedParts.map((part) => { if (part && /^[a-z]/.test(part)) return part.charAt(0).toUpperCase() + part.slice(1); return part; }).join(' ');
+      };
+      const transliterateWord = (word, charMap) => { let result = ''; for (let i = 0; i < word.length; i++) { const char = word[i]; const nextChar = i < word.length - 1 ? word[i + 1] : ''; if (i < word.length - 1) { const twoChars = char + nextChar; if (charMap[twoChars]) { result += charMap[twoChars]; i++; continue; } } if (charMap[char] !== undefined) result += charMap[char]; else result += char; } result = result.replace(/aa+/g, 'a'); result = result.replace(/'+/g, "'"); result = result.replace(/\s+/g, ' ').trim(); return result; };
+      const arabicToEnglishNames = (namesArray) => namesArray.map(name => arabicToEnglishTransliteration(name));
+
+      // ملف الترجمة
+      const translations = {
+        ar: { classTitle: "أدخل اسم القسم...", importExcel: "📥 تحميل أسماء من Excel", exportExcel: "📤 تصدير Excel", boardTitle: "📋 لوحة متابعة المعلم", name: "الاسم", rating: "⭐ التقدير", goodParticipation: "مشاركة جيدة", talkingInClass: "يتحدث بالحصة", notParticipating: "لا يشارك", behavior: "سلوك", lateness: "تأخر", attendance: "الحضور", book: "📗 الكتاب", notebook: "📒 الدفتر", homework: "📘 الواجب", notes: "ملاحظات", status: "الحالة", participationCounter: "عداد المشاركة", level: "تحديد المستوى", progressPercentage: "نسبة التقدم", absenceCounter: "عداد الغياب", talkingCounter: "يتحدث بالحصة", talkWithoutPermission: "لايشارك", bookNotActive: "عدم إحضار الكتاب", notebookNotActive: "عدم إحضار الدفتر", homeworkNotActive: "عدم عمل الواجب", badBehaviorCounter: "عدد السلوكات الخاطئة", latenessCounter: "عداد التأخر", notBringingBook: "عدم إحضار الكتاب 📗", notBringingNotebook: "عدم إحضار الدفتر 📒", notDoingHomework: "عدم عمل الواجب 📘", deleteTeacher: "حذف المعلم 🗑️", deleteStudent: "حذف الطالب 🗑️", deleteAllTeachers: "💥 حذف الكل", importTeachersLabel: "<i class='fas fa-file-excel'></i> تحميل معلمين", confirmDeleteTeacher: "هل أنت متأكد من حذف المعلم الحالي وجميع بياناته؟", confirmDeleteStudent: (name) => `هل أنت متأكد من حذف الطالب: ${name}؟`, confirmDeleteAllTeachers: "هل أنت متأكد من حذف جميع المعلمين وجميع بياناتهم؟ لا يمكن التراجع عن هذا الإجراء.", msgParticipate: "مشاركة جيدة 👋", msgTalk: "يتحدث بالحصة 🗣️", msgNotParticipate: "لا يشارك 😴", msgBehavior: "سلوك ⚫", msgLateness: "تأخر عن الحصة ⏰", msgAbsent: "غياب ❌", msgResetState: "تم إعادة الحالة 🔄", msgResetCounters: "تم إعادة جميع العدادات 📊", resetAllConfirm: "هل أنت متأكد من إعادة جميع العدادات للصفر لجميع الطلاب في هذا اليوم؟", resetAllSuccess: "تم تصفير جميع العدادات", states: [{ color: "#7c3aed", label: "نقاط الطالب", stars: 5 }, { color: "#22c55e", label: "مشاركة جيدة", stars: 5 }, { color: "#f59e0b", label: "يتحدث بالحصة", stars: 3 }, { color: "#6366f1", label: "لا يشارك (يتحدث بدون إذن)", stars: 2 }, { color: "#000000", label: "سلوك", stars: 1 }, { color: "#ef4444", label: "غياب", stars: 0 }], levels: ["منخفض", "جيد", "ممتاز", "متفوق", "موهوب", "عبقري"], notesOptions: ["", "يقوم من مكانه", "يرمي ورق على زملائه", "لا يكتب", "يأكل بالفصل", "يتحدث كثيرًا بدون إذن", "يتنمر باللفظ", "يحتاج متابعة", "ممتاز في السلوك", "أخرى"], resetConfirm: (name) => `هل تريد إعادة جميع عدادات ${name} للصفر؟`, attendanceText: ["حضور", "غياب"], excelFileName: (teacherName, className, dateStr) => `كشف_متابعة_${teacherName}_${className}_${dateStr}.xlsx`, excelTitle: (date, day, time, title, teacherName, subject) => `🗓️ ${day} - ${date} - ${time}\n📋 ${title}\n👨‍🏫 المعلم: ${teacherName} - المادة: ${subject}`, copyrightText: "📊 نظام متابعة المعلمين والطلاب - حقوق الملكية © 2026 محمد رضا عوف", quickActions: { participate: "مشاركة جيدة 👋", talk: "يتحدث بالحصة 🗣️", notParticipating: "لا يشارك 😴", behavior: "سلوك ⚫", lateness: "تأخر ⏰", absent: "غياب ❌", resetState: "إعادة الحالة 🔄", resetCounters: "إعادة جميع العدادات 📊" }, errorSelectTeacher: "الرجاء اختيار معلم أولاً", errorSelectClass: "الرجاء اختيار القسم أولاً", studentAdded: "تمت إضافة الطالب بنجاح", teacherDeleted: "تم حذف المعلم بنجاح", studentDeleted: "تم حذف الطالب بنجاح", allTeachersDeleted: "تم حذف جميع المعلمين بنجاح", newTeacherPlaceholder: "اسم المعلم...", newStudentPlaceholder: "أضف طالباً يدوياً...", firebase: { online: "متصل بالسحابة ☁️", offline: "تخزين محلي 💾", syncSuccess: "تمت المزامنة بنجاح", syncError: "خطأ في المزامنة", loginSuccess: "تم تسجيل الدخول", logoutSuccess: "تم تسجيل الخروج", registerSuccess: "تم إنشاء الحساب", authError: "خطأ في المصادقة", storageLocal: "التخزين المحلي مفعل", storageCloud: "التخزين السحابي مفعل" }, calendar: { days: ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"], months: ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"] } },
+        en: { classTitle: "Enter class name...", importExcel: "📥 Import from Excel", exportExcel: "📤 Export Excel", boardTitle: "📋 Teacher Tracking Dashboard", name: "Name", rating: "⭐ Rating", goodParticipation: "Good Participation", talkingInClass: "Talking in Class", notParticipating: "Not Participating", behavior: "Behavior", lateness: "Lateness", attendance: "Attendance", book: "📗 Book", notebook: "📒 Notebook", homework: "📘 Homework", notes: "Notes", status: "Status", participationCounter: "Participation Counter", level: "Level", progressPercentage: "Progress %", absenceCounter: "Absence Counter", talkingCounter: "Talking Counter", talkWithoutPermission: "Talk Without Permission", bookNotActive: "Book Not Active", notebookNotActive: "Notebook Not Active", homeworkNotActive: "Homework Not Active", badBehaviorCounter: "Bad Behavior Counter", latenessCounter: "Lateness Counter", notBringingBook: "Not bringing book 📗", notBringingNotebook: "Not bringing notebook 📒", notDoingHomework: "Not doing homework 📘", deleteTeacher: "Delete Teacher 🗑️", deleteStudent: "Delete Student 🗑️", deleteAllTeachers: "💥 Delete All", importTeachersLabel: "<i class='fas fa-file-excel'></i> Import Teachers", confirmDeleteTeacher: "Are you sure you want to delete this teacher and all their data?", confirmDeleteStudent: (name) => `Are you sure you want to delete student: ${name}?`, confirmDeleteAllTeachers: "Are you sure you want to delete all teachers and all their data? This action cannot be undone.", msgParticipate: "Good Participation 👋", msgTalk: "Talking in Class 🗣️", msgNotParticipate: "Not Participating 😴", msgBehavior: "Behavior ⚫", msgLateness: "Lateness ⏰", msgAbsent: "Absence ❌", msgResetState: "Status Reset 🔄", msgResetCounters: "Counters Reset 📊", resetAllConfirm: "Are you sure you want to reset all counters for all students today?", resetAllSuccess: "All counters reset successfully", states: [{ color: "#7c3aed", label: "Student Points", stars: 5 }, { color: "#22c55e", label: "Good Participation", stars: 5 }, { color: "#f59e0b", label: "Talking in Class", stars: 3 }, { color: "#6366f1", label: "Not Participating (talks without permission)", stars: 2 }, { color: "#000000", label: "Behavior", stars: 1 }, { color: "#ef4444", label: "Absence", stars: 0 }], levels: ["Low", "Good", "Very Good", "Excellent", "Talented", "Genius"], notesOptions: ["", "Leaves seat", "Throws paper at classmates", "Doesn't write", "Eats in class", "Talks too much without permission", "Verbally bullies", "Needs monitoring", "Excellent behavior", "Other"], resetConfirm: (name) => `Reset all counters for ${name}?`, attendanceText: ["Present", "Absent"], excelFileName: (teacherName, className, dateStr) => `Tracking_Report_${teacherName}_${className}_${dateStr}.xlsx`, excelTitle: (date, day, time, title, teacherName, subject) => `🗓️ ${day} - ${date} - ${time}\n📋 ${title}\n👨‍🏫 Teacher: ${teacherName} - Subject: ${subject}`, copyrightText: "📊 Teacher & Student Tracking System - Copyright © 2026 Mohammed Reda Awf", quickActions: { participate: "Good Participation 👋", talk: "Talking in Class 🗣️", notParticipating: "Not Participating 😴", behavior: "Behavior ⚫", lateness: "Lateness ⏰", absent: "Absence ❌", resetState: "Reset State 🔄", resetCounters: "Reset all counters 📊" }, errorSelectTeacher: "Please select a teacher first", errorSelectClass: "Please select a class first", studentAdded: "Student added successfully", teacherDeleted: "Teacher deleted successfully", studentDeleted: "Student deleted successfully", allTeachersDeleted: "All teachers deleted successfully", newTeacherPlaceholder: "Teacher name...", newStudentPlaceholder: "Add student manually...", firebase: { online: "Connected to Cloud ☁️", offline: "Local Storage 💾", syncSuccess: "Successfully synced", syncError: "Sync error", loginSuccess: "Login successful", logoutSuccess: "Logout successful", registerSuccess: "Account created", authError: "Auth error", storageLocal: "Local storage active", storageCloud: "Cloud storage active" }, calendar: { days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] } }
+      };
+      
+      let currentLang = localStorage.getItem('dashboard_lang') || 'ar'; let currentTeacherId = null; let currentClass = null; let teachersList = JSON.parse(localStorage.getItem('teachers_list')) || defaultTeachers; let storageMode = localStorage.getItem('storage_mode') || 'local'; let currentUser = null; let isOnline = false; let originalStudentNames = []; let currentDisplayNames = []; let calendarDate = new Date(); let selectedDate = new Date(); let data = {}; // بيانات اليوم الحالي فقط
+      let allHistoryData = {}; // بيانات كل الأيام { [dateKey]: { [studentName]: studentData } }
+
+      const formattedSelectedDate = () => { const y = selectedDate.getFullYear(); const m = String(selectedDate.getMonth() + 1).padStart(2, '0'); const d = String(selectedDate.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; };
+      const STORAGE_KEY_NAMES = () => `tracking_names_${currentTeacherId}_${currentClass}`; // قديم
+      const STORAGE_KEY_DATA = () => `tracking_data_history_${currentTeacherId}_${currentClass}`; // لتخزين allHistoryData
+      const STORAGE_KEY_ORIGINAL_NAMES = () => `original_names_${currentTeacherId}_${currentClass}`;
+      const STORAGE_KEY_TITLE = () => `board_title_${currentTeacherId}_${currentClass}`;
+      const FIREBASE_PATH = () => { if (!currentUser) return null; return `users/${currentUser.uid}/teachers/${currentTeacherId}/classes/${currentClass}`; }; 
+      let studentNames = []; let selectedStudent = null;
+
+      // عناصر DOM
+      const teacherSelect = document.getElementById("teacherSelect"); const classSelect = document.getElementById("classSelect"); const teacherCardContainer = document.getElementById("teacherCardContainer"); const boardTitleEl = document.getElementById("boardTitleText"); const boardTitleContainer = document.getElementById("boardTitle"); const currentDateDisplayEl = document.getElementById("currentDateDisplay"); const classTitleInput = document.getElementById("classTitle"); const studentsContainer = document.getElementById("students"); const table = document.getElementById("report"); const tbody = table.querySelector("tbody"); const newTeacherNameInput = document.getElementById("newTeacherName"); const newTeacherSubjectSelect = document.getElementById("newTeacherSubject"); const addTeacherBtn = document.getElementById("addTeacherBtn"); const deleteTeacherBtn = document.getElementById("deleteTeacherBtn"); const deleteAllTeachersBtn = document.getElementById("deleteAllTeachersBtn"); const importTeachersInput = document.getElementById("importTeachersExcel"); const importTeachersLabel = document.getElementById("importTeachersLabel"); const newStudentNameInput = document.getElementById("newStudentName"); const addStudentBtn = document.getElementById("addStudentBtn");
+
+      const useLocalBtn = document.getElementById("useLocalBtn"); const useCloudBtn = document.getElementById("useCloudBtn"); const syncDataBtn = document.getElementById("syncDataBtn"); const loginBtn = document.getElementById("loginBtn"); const firebaseStatus = document.getElementById("firebaseStatus"); const loginForm = document.getElementById("loginForm"); const loginEmail = document.getElementById("loginEmail"); const loginPassword = document.getElementById("loginPassword"); const submitLogin = document.getElementById("submitLogin"); const registerBtn = document.getElementById("registerBtn"); const anonLogin = document.getElementById("anonLogin"); const cancelLogin = document.getElementById("cancelLogin"); const loginMessage = document.getElementById("loginMessage"); const calendarTitle = document.getElementById("calendarTitle"); const calendarGrid = document.getElementById("calendarGrid"); const prevMonthBtn = document.getElementById("prevMonth"); const nextMonthBtn = document.getElementById("nextMonth"); const calendarWrapper = document.getElementById("calendarWrapper"); const toggleCalendarBtn = document.getElementById("toggleCalendarBtn");
+      const resetAllCountersBtn = document.getElementById("resetAllCountersBtn");
+
+      // عناصر النافذة المنبثقة
+      const editModal = document.getElementById('editModal');
+      const editModalTitle = document.getElementById('editModalTitle');
+      const editStudentNameDisplay = document.getElementById('editStudentNameDisplay');
+      const editState = document.getElementById('editState');
+      const editBook = document.getElementById('editBook');
+      const editNotebook = document.getElementById('editNotebook');
+      const editHomework = document.getElementById('editHomework');
+      const editNote = document.getElementById('editNote');
+      const editParticipationCounter = document.getElementById('editParticipationCounter');
+      const editAbsenceCounter = document.getElementById('editAbsenceCounter');
+      const editLatenessCounter = document.getElementById('editLatenessCounter');
+      const editBadBehaviorCounter = document.getElementById('editBadBehaviorCounter');
+      const editTalkCounter = document.getElementById('editTalkCounter');
+      const editTalkWithoutPermissionCounter = document.getElementById('editTalkWithoutPermissionCounter');
+      const editBookNotActiveCounter = document.getElementById('editBookNotActiveCounter');
+      const editNotebookNotActiveCounter = document.getElementById('editNotebookNotActiveCounter');
+      const editHomeworkNotActiveCounter = document.getElementById('editHomeworkNotActiveCounter');
+      const editModalSave = document.getElementById('editModalSave');
+      const editModalCancel = document.getElementById('editModalCancel');
+
+      // دالة للتأكد من أن بيانات اليوم الحالي تحتوي على جميع الطلاب
+      function ensureAllStudentsInData() {
+          const dateKey = formattedSelectedDate();
+          // إذا لم يكن هناك بيانات لهذا اليوم، أنشئ كائنًا فارغًا
+          if (!allHistoryData[dateKey]) {
+              allHistoryData[dateKey] = {};
+          }
+          data = allHistoryData[dateKey]; // data يشير إلى بيانات اليوم الحالي
+
+          // تأكد من وجود جميع الطلاب في data
+          originalStudentNames.forEach(name => {
+              if (!data[name]) {
+                  data[name] = { 
+                      state: 0, book: true, notebook: true, homework: true, note: "", 
+                      participationCounter: 0, absenceCounter: 0, badBehaviorCounter: 0, 
+                      talkCounter: 0, talkWithoutPermissionCounter: 0, 
+                      bookNotActiveCounter: 0, notebookNotActiveCounter: 0, 
+                      homeworkNotActiveCounter: 0, latenessCounter: 0 
+                  };
+              }
+          });
+
+          // إعادة تعيين data في allHistoryData بعد التحديث
+          allHistoryData[dateKey] = data;
+      }
+
+      function renderCalendar() {
+        calendarGrid.innerHTML = ""; const t = translations[currentLang].calendar; t.days.forEach(day => { const dayHeader = document.createElement("div"); dayHeader.className = "calendar-day-name"; dayHeader.textContent = day; calendarGrid.appendChild(dayHeader); });
+        const year = calendarDate.getFullYear(); const month = calendarDate.getMonth(); calendarTitle.textContent = `${t.months[month]} ${year}`;
+        const firstDayIndex = new Date(year, month, 1).getDay(); const lastDay = new Date(year, month + 1, 0).getDate(); const todayStr = formattedSelectedDate(); const selectedStr = formattedSelectedDate();
+        for (let i = 0; i < firstDayIndex; i++) { const emptyCell = document.createElement("div"); emptyCell.className = "day-cell empty"; calendarGrid.appendChild(emptyCell); }
+        for (let i = 1; i <= lastDay; i++) {
+            const dayCell = document.createElement("div"); dayCell.className = "day-cell"; dayCell.textContent = i; const cellDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; const now = new Date(); const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            if (cellDateStr === nowStr) dayCell.classList.add("today"); if (cellDateStr === selectedStr) dayCell.classList.add("active");
+            dayCell.addEventListener("click", () => {
+                if (!currentTeacherId || !currentClass) { showMessage(currentLang === 'ar' ? "الرجاء اختيار المعلم والقسم أولاً" : "Please select teacher and class first", 'error'); return; }
+                
+                // حفظ التاريخ الحالي
+                const oldDateKey = formattedSelectedDate(); 
+                allHistoryData[oldDateKey] = data; 
+                
+                // تحديث التاريخ المختار
+                selectedDate = new Date(year, month, i); 
+                const newDateKey = formattedSelectedDate();
+
+                // تحميل بيانات التاريخ الجديد
+                if (allHistoryData[newDateKey]) {
+                    data = allHistoryData[newDateKey];
+                    showMessage((currentLang === 'ar' ? `تم تحميل بيانات: ${newDateKey}` : `Loaded data: ${newDateKey}`), 'info');
+                } else {
+                    data = {}; // سيتم ملؤها بواسطة ensureAllStudentsInData
+                    showMessage((currentLang === 'ar' ? `يوم جديد: ${newDateKey} (تم تصفير البيانات)` : `New Day: ${newDateKey} (Data reset to 0)`), 'info');
+                }
+
+                // التأكد من وجود جميع الطلاب في data لليوم الجديد
+                ensureAllStudentsInData();
+
+                // حفظ التحديثات في التخزين
+                localStorage.setItem(STORAGE_KEY_DATA(), JSON.stringify(allHistoryData)); 
+                
+                // تحديث الواجهة
+                initStudentsUI(); 
+                updateTable(); 
+                renderCalendar(); 
+                calendarWrapper.classList.remove('show');
+                updateDateDisplay();
+            });
+            calendarGrid.appendChild(dayCell);
+        }
+      }
+      toggleCalendarBtn.addEventListener("click", () => { calendarWrapper.classList.toggle('show'); });
+      prevMonthBtn.addEventListener("click", () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); });
+      nextMonthBtn.addEventListener("click", () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); });
+
+      // ===== التعديل رقم 1: تحسين دالة initializeFirebaseAuth =====
+      function initializeFirebaseAuth() {
+        if (!isFirebaseInitialized) return;
+        firebaseAuth.onAuthStateChanged((user) => {
+          currentUser = user; updateFirebaseUI();
+          if (user) { 
+            // ← تم التعديل: تحميل البيانات تلقائياً عند تسجيل الدخول
+            if (storageMode === 'cloud' && currentTeacherId && currentClass) {
+              loadData();
+            }
+          } else { 
+            if (storageMode === 'cloud') setStorageMode('local'); 
+          }
+        });
+      }
+
+      function updateFirebaseUI() {
+        const t = translations[currentLang];
+        if (currentUser) { const email = currentUser.email || t.firebase.offline; firebaseStatus.innerHTML = `<i class="fas fa-user"></i> ${email.substring(0, 20)}`; firebaseStatus.className = 'firebase-status online'; loginBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> ' + (currentLang === 'ar' ? 'تسجيل الخروج' : 'Logout'); }
+        else { firebaseStatus.innerHTML = `<i class="fas fa-wifi"></i> ${t.firebase.offline}`; firebaseStatus.className = 'firebase-status offline'; loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> ' + (currentLang === 'ar' ? 'تسجيل الدخول' : 'Login'); }
+        if (storageMode === 'local') { useLocalBtn.style.opacity = '1'; useLocalBtn.style.transform = 'scale(1.05)'; useCloudBtn.style.opacity = '0.7'; useCloudBtn.style.transform = 'scale(1)'; }
+        else { useLocalBtn.style.opacity = '0.7'; useLocalBtn.style.transform = 'scale(1)'; useCloudBtn.style.opacity = '1'; useCloudBtn.style.transform = 'scale(1.05)'; }
+        syncDataBtn.disabled = !currentUser || storageMode !== 'cloud';
+      }
+      function setStorageMode(mode) { storageMode = mode; localStorage.setItem('storage_mode', mode); const t = translations[currentLang]; if (mode === 'cloud' && !currentUser) { showMessage(t.firebase.authError, 'error'); showLoginForm(); return; } updateFirebaseUI(); if (currentTeacherId && currentClass) loadData(); showMessage(mode === 'local' ? t.firebase.storageLocal : t.firebase.storageCloud, 'success'); }
+      async function saveToFirebase() {
+        if (!isFirebaseInitialized || !currentUser || storageMode !== 'cloud') return; if (!currentTeacherId || !currentClass) return; const path = FIREBASE_PATH(); if (!path) return;
+        try { const saveData = { datesData: allHistoryData, originalStudentNames: originalStudentNames, boardTitle: boardTitleEl.textContent, lastUpdated: new Date().toISOString() }; await firebaseDb.ref(path).set(saveData); console.log("Full History saved to Firebase"); return true; } catch (error) { console.error("Error saving to Firebase:", error); showMessage(translations[currentLang].firebase.syncError, 'error'); return false; }
+      }
+      async function loadFromFirebase() {
+        if (!isFirebaseInitialized || !currentUser || storageMode !== 'cloud') return false; if (!currentTeacherId || !currentClass) return false; const path = FIREBASE_PATH(); if (!path) return false;
+        try { const snapshot = await firebaseDb.ref(path).once('value'); const firebaseData = snapshot.val(); if (firebaseData) { if (firebaseData.datesData) { allHistoryData = firebaseData.datesData; localStorage.setItem(STORAGE_KEY_DATA(), JSON.stringify(allHistoryData)); } if (firebaseData.originalStudentNames) { originalStudentNames = firebaseData.originalStudentNames; localStorage.setItem(STORAGE_KEY_ORIGINAL_NAMES(), JSON.stringify(originalStudentNames)); } if (firebaseData.boardTitle) { boardTitleEl.textContent = firebaseData.boardTitle; classTitleInput.value = boardTitleEl.textContent.replace(translations[currentLang].boardTitle + " - ", ""); } console.log("Data loaded from Firebase"); loadDataFromLocalStorage(); // سيقوم بتحديث data لليوم الحالي
+          return true; } return false; } catch (error) { console.error("Error loading from Firebase:", error); showMessage(translations[currentLang].firebase.syncError, 'error'); return false; }
+      }
+      async function syncData() { if (!isFirebaseInitialized || !currentUser || storageMode !== 'cloud') { showMessage("يجب تفعيل وضع السحابة وتسجيل الدخول أولاً", 'error'); return; } const t = translations[currentLang]; const saved = await saveAll(true); if (saved) showMessage(t.firebase.syncSuccess, 'success'); }
+      function showLoginForm() { loginForm.classList.add('show'); } function hideLoginForm() { loginForm.classList.remove('show'); loginEmail.value = ''; loginPassword.value = ''; loginMessage.textContent = ''; }
+      async function loginWithEmail() { const email = loginEmail.value.trim(); const password = loginPassword.value.trim(); if (!email || !password) { showMessage("الرجاء إدخال البريد الإلكتروني وكلمة المرور", 'error'); return; } try { await firebaseAuth.signInWithEmailAndPassword(email, password); showMessage(translations[currentLang].firebase.loginSuccess, 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ في تسجيل الدخول: ${error.message}`, 'error'); } }
+      async function registerWithEmail() { const email = loginEmail.value.trim(); const password = loginPassword.value.trim(); if (!email || !password) { showMessage("الرجاء إدخال البيانات", 'error'); return; } if (password.length < 6) { showMessage("كلمة المرور قصيرة جداً", 'error'); return; } try { await firebaseAuth.createUserWithEmailAndPassword(email, password); showMessage(translations[currentLang].firebase.registerSuccess, 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
+      async function loginAnonymously() { try { await firebaseAuth.signInAnonymously(); showMessage("تم الدخول كمجهول", 'success'); hideLoginForm(); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
+      async function logout() { try { await firebaseAuth.signOut(); showMessage(translations[currentLang].firebase.logoutSuccess, 'success'); } catch (error) { showMessage(`خطأ: ${error.message}`, 'error'); } }
+      function showMessage(message, type = 'info') { const messageDiv = document.createElement('div'); messageDiv.textContent = message; messageDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-weight: bold; z-index: 10000; box-shadow: 0 3px 10px rgba(0,0,0,0.2); animation: slideIn 0.3s ease; max-width: 300px; white-space: nowrap;`; if (type === 'success') messageDiv.style.background = '#34a853'; else if (type === 'error') messageDiv.style.background = '#ea4335'; else messageDiv.style.background = '#4285f4'; document.body.appendChild(messageDiv); setTimeout(() => { messageDiv.style.animation = 'slideOut 0.3s ease'; setTimeout(() => { if (messageDiv.parentNode) document.body.removeChild(messageDiv); }, 300); }, 3000); }
+
+      function initTeacherSelect() { teacherSelect.innerHTML = '<option value="" disabled selected>-- اختر المعلم --</option>'; teachersList.forEach(teacher => { const option = document.createElement("option"); option.value = teacher.id; option.textContent = `${teacher.name} - ${teacher.subject}`; teacherSelect.appendChild(option); }); }
+      function getSubjectIcon(subject) { const map = { 'اجتماعيات': 'fa-globe', 'فنية': 'fa-palette', 'لغة عربية': 'fa-book', 'لغتي': 'fa-language', 'تربية إسلامية': 'fa-moon', 'رياضيات': 'fa-calculator', 'علوم': 'fa-flask' }; return map[subject] || 'fa-chalkboard-user'; }
+      function selectTeacher(teacherId) { currentTeacherId = teacherId; const teacher = teachersList.find(t => t.id === teacherId); if (!teacher) return; const iconClass = teacher.icon || getSubjectIcon(teacher.subject); teacherCardContainer.innerHTML = `<div class="teacher-card"><div class="teacher-icon"><i class="fa-solid ${iconClass}"></i></div><div class="teacher-info"><h3>${teacher.name}</h3><p>التخصص: ${teacher.subject}</p></div></div>`; if (currentClass) loadData(); }
+      function selectClass(classId) { currentClass = classId; if (currentTeacherId) loadData(); }
+
+      // ===== التعديل رقم 2: تحسين دالة loadData للتحميل من Firebase أولاً =====
+      async function loadData() { 
+        if (!currentTeacherId || !currentClass) return; 
+        let loaded = false; 
+        // ← تم التعديل: محاولة التحميل من Firebase أولاً إذا كان الوضع سحابي
+        if (storageMode === 'cloud' && currentUser && isFirebaseInitialized) { 
+          loaded = await loadFromFirebase(); 
+          if (loaded) { 
+            console.log("✅ تم تحميل البيانات من Firebase بنجاح"); 
+          } 
+        } 
+        if (!loaded) loadDataFromLocalStorage(); 
+        updateDisplayNames(); 
+        ensureAllStudentsInData(); 
+        applyLanguage(currentLang); 
+        updateDateDisplay(); 
+        initStudentsUI(); 
+        updateTable(); 
+      }
+
+      function loadDataFromLocalStorage() { 
+          allHistoryData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA())) || {}; 
+          originalStudentNames = JSON.parse(localStorage.getItem(STORAGE_KEY_ORIGINAL_NAMES())) || []; 
+          
+          // إذا كان هناك قائمة قديمة بأسماء الطلاب (من الإصدارات السابقة) نقوم بتحويلها
+          if (originalStudentNames.length === 0) { 
+              const oldNames = JSON.parse(localStorage.getItem(STORAGE_KEY_NAMES())) || []; 
+              originalStudentNames = [...oldNames]; 
+              // حفظ الأسماء الجديدة
+              localStorage.setItem(STORAGE_KEY_ORIGINAL_NAMES(), JSON.stringify(originalStudentNames));
+          }
+          
+          // تأكد من أن بيانات اليوم الحالي موجودة ومحدثة
+          ensureAllStudentsInData();
+      }
+      function updateDisplayNames() { if (originalStudentNames.length === 0) { studentNames = []; return; } if (currentLang === 'en') studentNames = arabicToEnglishNames(originalStudentNames); else studentNames = [...originalStudentNames]; }
+      function updateDateDisplay() { const dateStr = formattedSelectedDate(); currentDateDisplayEl.textContent = dateStr; }
+      async function saveAll(showMsg = true) { if (!currentTeacherId || !currentClass) return; const dateKey = formattedSelectedDate(); allHistoryData[dateKey] = data; localStorage.setItem(STORAGE_KEY_ORIGINAL_NAMES(), JSON.stringify(originalStudentNames)); localStorage.setItem(STORAGE_KEY_DATA(), JSON.stringify(allHistoryData)); localStorage.setItem(STORAGE_KEY_TITLE(), boardTitleEl.textContent); if (storageMode === 'cloud' && currentUser) await saveToFirebase(); }
+      function saveTeachersList() { localStorage.setItem('teachers_list', JSON.stringify(teachersList)); }
+
+      importTeachersInput.addEventListener("change", (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const wb = XLSX.read(evt.target.result, { type: "binary" }); const sheet = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }); let addedCount = 0; rows.forEach(row => { const name = row[0] ? row[0].toString().trim() : null; const subject = (row[1] ? row[1].toString().trim() : null) || newTeacherSubjectSelect.value || "أخرى"; if (name) { const exists = teachersList.find(t => t.name === name); if (!exists) { teachersList.push({ id: 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5), name: name, subject: subject, icon: getSubjectIcon(subject) }); addedCount++; } } }); if (addedCount > 0) { saveTeachersList(); showMessage(currentLang === 'ar' ? `تم استيراد ${addedCount} معلم` : `Imported ${addedCount} teachers`, 'success'); } else { showMessage(currentLang === 'ar' ? "لم يتم إضافة معلمين" : "No teachers added", 'info'); } importTeachersInput.value = ''; } catch (error) { console.error(error); showMessage(currentLang === 'ar' ? "خطأ في قراءة الملف" : "Error reading file", 'error'); } }; reader.readAsBinaryString(file); });
+
+      deleteAllTeachersBtn.addEventListener("click", () => { const t = translations[currentLang]; if (confirm(t.confirmDeleteAllTeachers)) { teachersList = []; saveTeachersList(); teacherSelect.value = ""; currentTeacherId = null; currentClass = null; teacherCardContainer.innerHTML = ""; studentsContainer.innerHTML = ""; tbody.innerHTML = ""; boardTitleEl.textContent = t.boardTitle; showMessage(t.allTeachersDeleted, 'success'); } });
+      deleteTeacherBtn.addEventListener("click", () => { if (!currentTeacherId) { alert(translations[currentLang].errorSelectTeacher); return; } if (confirm(translations[currentLang].confirmDeleteTeacher)) { teachersList = teachersList.filter(t => t.id !== currentTeacherId); saveTeachersList(); Object.keys(localStorage).forEach(key => { if(key.includes(`tracking_data_history_${currentTeacherId}_`)) localStorage.removeItem(key); if(key.includes(`tracking_names_${currentTeacherId}_`)) localStorage.removeItem(key); if(key.includes(`original_names_${currentTeacherId}_`)) localStorage.removeItem(key); }); teacherSelect.value = ""; currentTeacherId = null; teacherCardContainer.innerHTML = ""; studentsContainer.innerHTML = ""; tbody.innerHTML = ""; boardTitleEl.textContent = translations[currentLang].boardTitle; alert(translations[currentLang].teacherDeleted); } });
+      addTeacherBtn.addEventListener("click", () => { const name = newTeacherNameInput.value.trim(); const subject = newTeacherSubjectSelect.value; if (!name || !subject) { alert(currentLang === 'ar' ? "الرجاء إدخال اسم المعلم وتخصصه" : "Please enter teacher name and subject"); return; } const newTeacher = { id: 't_' + Date.now(), name: name, subject: subject, icon: getSubjectIcon(subject) }; teachersList.push(newTeacher); saveTeachersList(); newTeacherNameInput.value = ''; newTeacherSubjectSelect.value = ''; alert(currentLang === 'ar' ? "تمت إضافة المعلم بنجاح" : "Teacher added successfully"); });
+
+      addStudentBtn.addEventListener("click", async () => { 
+          if (!currentTeacherId) { alert(translations[currentLang].errorSelectTeacher); return; } 
+          if (!currentClass) { alert(translations[currentLang].errorSelectClass); return; } 
+          const name = newStudentNameInput.value.trim(); 
+          if (!name) { alert(currentLang === 'ar' ? "الرجاء إدخال اسم الطالب" : "Please enter student name"); return; } 
+          if (originalStudentNames.includes(name)) { alert(currentLang === 'ar' ? "الطالب موجود مسبقاً" : "Student already exists"); return; } 
+          originalStudentNames.push(name); 
+          updateDisplayNames(); 
+          
+          // إضافة الطالب لليوم الحالي فقط
+          if (!data[name]) {
+              data[name] = { state: 0, book: true, notebook: true, homework: true, note: "", participationCounter: 0, absenceCounter: 0, badBehaviorCounter: 0, talkCounter: 0, talkWithoutPermissionCounter: 0, bookNotActiveCounter: 0, notebookNotActiveCounter: 0, homeworkNotActiveCounter: 0, latenessCounter: 0 }; 
+          }
+          
+          newStudentNameInput.value = ''; 
+          await saveAll(); 
+          initStudentsUI(); 
+          updateTable(); 
+          alert(translations[currentLang].studentAdded); 
+      });
+
+      const applyLanguage = (lang) => { currentLang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; const t = translations[lang]; document.getElementById("switchToAr").classList.toggle('active', lang === 'ar'); document.getElementById("switchToEn").classList.toggle('active', lang === 'en'); classTitleInput.placeholder = t.classTitle; document.getElementById("importExcelLabel").textContent = t.importExcel; document.getElementById("exportExcel").textContent = t.exportExcel; newTeacherNameInput.placeholder = t.newTeacherPlaceholder; newStudentNameInput.placeholder = t.newStudentPlaceholder; deleteTeacherBtn.textContent = t.deleteTeacher; deleteAllTeachersBtn.textContent = t.deleteAllTeachers; importTeachersLabel.innerHTML = t.importTeachersLabel; const classNameDisplay = currentClass ? (classOptions[currentClass]?.[lang] || currentClass) : ""; const teacherNameDisplay = currentTeacherId ? teachersList.find(tch => tch.id === currentTeacherId).name : ""; const titleText = classTitleInput.value || `${teacherNameDisplay} - ${classNameDisplay}`; boardTitleEl.textContent = `${t.boardTitle} - ${titleText}`; Array.from(classSelect.options).forEach(option => { const val = option.value; if (val && classOptions[val]) option.textContent = classOptions[val][lang]; }); table.querySelectorAll("th").forEach(header => { const key = header.getAttribute('data-key'); if (key && t[key]) header.textContent = t[key]; }); const copyrightFooter = document.getElementById('copyrightFooter'); if (copyrightFooter) copyrightFooter.textContent = t.copyrightText; const teacherCard = document.querySelector('.teacher-card'); if (teacherCard) { const teacherInfo = teacherCard.querySelector('.teacher-info p'); if (teacherInfo) { teacherInfo.textContent = lang === 'ar' ? `التخصص: ${teachersList.find(t => t.id === currentTeacherId)?.subject || ''}` : `Subject: ${teachersList.find(t => t.id === currentTeacherId)?.subject || ''}`; } } localStorage.setItem('dashboard_lang', lang); updateDisplayNames(); initStudentsUI(); updateTable(); updateFirebaseUI(); renderCalendar(); updateDateDisplay(); };
+
+      const calculateLevel = (studentData) => { 
+          const participation = studentData.participationCounter || 0; 
+          const t = translations[currentLang]; 
+          let baseLevel = t.levels[0]; 
+          if (participation >= 70) baseLevel = t.levels[5]; 
+          else if (participation >= 50) baseLevel = t.levels[4]; 
+          else if (participation >= 30) baseLevel = t.levels[3]; 
+          else if (participation >= 25) baseLevel = t.levels[2]; 
+          else if (participation >= 10) baseLevel = t.levels[1]; 
+          return baseLevel; 
+      };
+      const calculateProgress = (studentData) => { 
+          const level = calculateLevel(studentData); 
+          const t = translations[currentLang]; 
+          const levelPercentages = { [t.levels[0]]: 10, [t.levels[1]]: 35, [t.levels[2]]: 60, [t.levels[3]]: 75, [t.levels[4]]: 85, [t.levels[5]]: 95 }; 
+          return { percentage: levelPercentages[level] || 10, level: level }; 
+      };
+
+      const setStudentState = async (displayName, newState) => { 
+          const displayIndex = studentNames.indexOf(displayName); 
+          if (displayIndex === -1) return; 
+          const originalName = originalStudentNames[displayIndex] || displayName; 
+          const studentElement = document.querySelector(`.student[data-name="${displayName}"]`); 
+          if (!studentElement) return; 
+          data[originalName].state = newState; 
+          const t = translations[currentLang]; 
+          const st = t.states[newState]; 
+          studentElement.style.background = st.color; 
+          studentElement.title = st.label; 
+          
+          // تحديث العدادات حسب الحالة
+          if (newState === 1) data[originalName].participationCounter = (data[originalName].participationCounter || 0) + 1; 
+          else if (newState === 2) data[originalName].talkCounter = (data[originalName].talkCounter || 0) + 1; 
+          else if (newState === 3) data[originalName].talkWithoutPermissionCounter = (data[originalName].talkWithoutPermissionCounter || 0) + 1; 
+          else if (newState === 4) data[originalName].badBehaviorCounter = (data[originalName].badBehaviorCounter || 0) + 1; 
+          else if (newState === 5) data[originalName].absenceCounter = (data[originalName].absenceCounter || 0) + 1; 
+          
+          let msgKey = ''; 
+          if (newState === 1) msgKey = 'msgParticipate'; 
+          else if (newState === 2) msgKey = 'msgTalk'; 
+          else if (newState === 3) msgKey = 'msgNotParticipate'; 
+          else if (newState === 4) msgKey = 'msgBehavior'; 
+          else if (newState === 5) msgKey = 'msgAbsent'; 
+          else if (newState === 0) msgKey = 'msgResetState'; 
+          if (msgKey) showMessage(`${displayName}: ${t[msgKey]}`, 'info'); 
+          await saveAll(); 
+          updateTable(); 
+          if (newState === 1) showTrophy(); 
+      };
+      const incrementCounter = async (displayName, counterKey, msgKey) => { 
+          const displayIndex = studentNames.indexOf(displayName); 
+          if (displayIndex === -1) return; 
+          const originalName = originalStudentNames[displayIndex] || displayName; 
+          data[originalName][counterKey] = (data[originalName][counterKey] || 0) + 1; 
+          const t = translations[currentLang]; 
+          showMessage(`${displayName}: ${t[msgKey]}`, 'info'); 
+          await saveAll(); 
+          updateTable(); 
+      };
+      const deleteStudent = async (displayName) => { 
+          const displayIndex = studentNames.indexOf(displayName); 
+          if (displayIndex === -1) return; 
+          const originalName = originalStudentNames[displayIndex] || displayName; 
+          const t = translations[currentLang]; 
+          if (confirm(t.confirmDeleteStudent(displayName))) { 
+              originalStudentNames.splice(displayIndex, 1); 
+              studentNames.splice(displayIndex, 1); 
+              // حذف الطالب من جميع الأيام
+              Object.keys(allHistoryData).forEach(dateKey => {
+                  delete allHistoryData[dateKey][originalName];
+              });
+              delete data[originalName]; 
+              await saveAll(); 
+              initStudentsUI(); 
+              updateTable(); 
+              showMessage(t.studentDeleted, 'success'); 
+          } 
+      };
+      const resetStudentCounters = async (displayName) => { 
+          const displayIndex = studentNames.indexOf(displayName); 
+          if (displayIndex === -1) return; 
+          const originalName = originalStudentNames[displayIndex] || displayName; 
+          const t = translations[currentLang]; 
+          if (confirm(t.resetConfirm(displayName))) { 
+              data[originalName] = { 
+                  state: 0, book: true, notebook: true, homework: true, note: "", 
+                  participationCounter: 0, absenceCounter: 0, badBehaviorCounter: 0, 
+                  talkCounter: 0, talkWithoutPermissionCounter: 0, 
+                  bookNotActiveCounter: 0, notebookNotActiveCounter: 0, 
+                  homeworkNotActiveCounter: 0, latenessCounter: 0 
+              }; 
+              showMessage(`${displayName}: ${t.msgResetCounters}`, 'info'); 
+              await saveAll(); 
+              initStudentsUI(); 
+              updateTable(); 
+          } 
+      };
+
+      // دالة فتح نافذة التعديل
+      let currentEditDisplayName = null;
+      function openEditModal(displayName) {
+          const displayIndex = studentNames.indexOf(displayName);
+          if (displayIndex === -1) return;
+          const originalName = originalStudentNames[displayIndex] || displayName;
+          const studentData = data[originalName] || {};
+          
+          currentEditDisplayName = displayName;
+          editStudentNameDisplay.textContent = displayName;
+          editState.value = studentData.state || 0;
+          editBook.value = studentData.book ? 'true' : 'false';
+          editNotebook.value = studentData.notebook ? 'true' : 'false';
+          editHomework.value = studentData.homework ? 'true' : 'false';
+          editNote.value = studentData.note || '';
+          editParticipationCounter.value = studentData.participationCounter || 0;
+          editAbsenceCounter.value = studentData.absenceCounter || 0;
+          editLatenessCounter.value = studentData.latenessCounter || 0;
+          editBadBehaviorCounter.value = studentData.badBehaviorCounter || 0;
+          editTalkCounter.value = studentData.talkCounter || 0;
+          editTalkWithoutPermissionCounter.value = studentData.talkWithoutPermissionCounter || 0;
+          editBookNotActiveCounter.value = studentData.bookNotActiveCounter || 0;
+          editNotebookNotActiveCounter.value = studentData.notebookNotActiveCounter || 0;
+          editHomeworkNotActiveCounter.value = studentData.homeworkNotActiveCounter || 0;
+          
+          editModal.classList.add('show');
+      }
+
+      // حفظ التعديلات
+      editModalSave.addEventListener('click', async () => {
+          if (!currentEditDisplayName) return;
+          const displayIndex = studentNames.indexOf(currentEditDisplayName);
+          if (displayIndex === -1) return;
+          const originalName = originalStudentNames[displayIndex] || currentEditDisplayName;
+          
+          // تحديث القيم
+          data[originalName].state = parseInt(editState.value) || 0;
+          data[originalName].book = editBook.value === 'true';
+          data[originalName].notebook = editNotebook.value === 'true';
+          data[originalName].homework = editHomework.value === 'true';
+          data[originalName].note = editNote.value;
+          data[originalName].participationCounter = parseInt(editParticipationCounter.value) || 0;
+          data[originalName].absenceCounter = parseInt(editAbsenceCounter.value) || 0;
+          data[originalName].latenessCounter = parseInt(editLatenessCounter.value) || 0;
+          data[originalName].badBehaviorCounter = parseInt(editBadBehaviorCounter.value) || 0;
+          data[originalName].talkCounter = parseInt(editTalkCounter.value) || 0;
+          data[originalName].talkWithoutPermissionCounter = parseInt(editTalkWithoutPermissionCounter.value) || 0;
+          data[originalName].bookNotActiveCounter = parseInt(editBookNotActiveCounter.value) || 0;
+          data[originalName].notebookNotActiveCounter = parseInt(editNotebookNotActiveCounter.value) || 0;
+          data[originalName].homeworkNotActiveCounter = parseInt(editHomeworkNotActiveCounter.value) || 0;
+          
+          await saveAll();
+          initStudentsUI();
+          updateTable();
+          editModal.classList.remove('show');
+          showMessage(`تم تحديث بيانات ${currentEditDisplayName}`, 'success');
+      });
+
+      editModalCancel.addEventListener('click', () => {
+          editModal.classList.remove('show');
+      });
+
+      // إغلاق النافذة عند النقر خارج المحتوى
+      editModal.addEventListener('click', (e) => {
+          if (e.target === editModal) {
+              editModal.classList.remove('show');
+          }
+      });
+
+      // زر تصفير جميع العدادات
+      resetAllCountersBtn.addEventListener('click', async () => {
+          if (!currentTeacherId || !currentClass) {
+              showMessage(translations[currentLang].errorSelectTeacher, 'error');
+              return;
+          }
+          const t = translations[currentLang];
+          if (confirm(t.resetAllConfirm)) {
+              originalStudentNames.forEach(name => {
+                  if (data[name]) {
+                      data[name].participationCounter = 0;
+                      data[name].absenceCounter = 0;
+                      data[name].latenessCounter = 0;
+                      data[name].badBehaviorCounter = 0;
+                      data[name].talkCounter = 0;
+                      data[name].talkWithoutPermissionCounter = 0;
+                      data[name].bookNotActiveCounter = 0;
+                      data[name].notebookNotActiveCounter = 0;
+                      data[name].homeworkNotActiveCounter = 0;
+                      // لا نغير حالة الكتاب/الدفتر/الواجب
+                  }
+              });
+              await saveAll();
+              initStudentsUI();
+              updateTable();
+              showMessage(t.resetAllSuccess, 'success');
+          }
+      });
+
+      const createStudentElement = (displayName) => { 
+          const container = document.createElement("div"); 
+          container.className = "student-container"; 
+          const el = document.createElement("div"); 
+          el.className = "student"; 
+          el.dataset.name = displayName; 
+          el.textContent = displayName; 
+          const displayIndex = studentNames.indexOf(displayName); 
+          const originalName = displayIndex !== -1 ? originalStudentNames[displayIndex] : displayName; 
+          const t = translations[currentLang]; 
+          const studentData = data[originalName] || {}; 
+          const st = studentData ? t.states[studentData.state] : t.states[0]; 
+          el.style.background = st.color; 
+          el.classList.add(`state-${studentData.state || 0}`); 
+          el.title = st.label; 
+          const quickControls = document.createElement("div"); 
+          quickControls.className = "quick-controls"; 
+          const buttons = [{ text: "👋", state: 1, cls: "btn-participate", title: t.quickActions.participate }, { text: "🗣️", state: 2, cls: "btn-talk", title: t.quickActions.talk }, { text: "😴", state: 3, cls: "btn-no-part", title: t.quickActions.notParticipating }, { text: "⚫", state: 4, cls: "btn-behavior", title: t.quickActions.behavior }, { text: "⏰", state: 6, cls: "btn-lateness", title: t.quickActions.lateness }, { text: "❌", state: 5, cls: "btn-absent", title: t.quickActions.absent }, { text: "🔄", state: 0, cls: "btn-reset", title: t.quickActions.resetState }]; 
+          buttons.forEach(btn => { 
+              const button = document.createElement("button"); 
+              button.textContent = btn.text; 
+              button.className = btn.cls; 
+              button.title = btn.title; 
+              button.onclick = async (e) => { 
+                  e.stopPropagation(); 
+                  if(btn.state === 6) { 
+                      await incrementCounter(displayName, 'latenessCounter', 'msgLateness'); 
+                  } else { 
+                      await setStudentState(displayName, btn.state); 
+                  } 
+              }; 
+              quickControls.appendChild(button); 
+          }); 
+          const btnBook = document.createElement("button"); 
+          btnBook.textContent = "📗"; 
+          btnBook.className = "btn-book"; 
+          btnBook.title = t.notBringingBook; 
+          btnBook.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'bookNotActiveCounter', 'notBringingBook'); }; 
+          quickControls.appendChild(btnBook); 
+          const btnNotebook = document.createElement("button"); 
+          btnNotebook.textContent = "📒"; 
+          btnNotebook.className = "btn-notebook"; 
+          btnNotebook.title = t.notBringingNotebook; 
+          btnNotebook.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'notebookNotActiveCounter', 'notBringingNotebook'); }; 
+          quickControls.appendChild(btnNotebook); 
+          const btnHomework = document.createElement("button"); 
+          btnHomework.textContent = "📘"; 
+          btnHomework.className = "btn-homework"; 
+          btnHomework.title = t.notDoingHomework; 
+          btnHomework.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'homeworkNotActiveCounter', 'notDoingHomework'); }; 
+          quickControls.appendChild(btnHomework); 
+          const btnResetCounters = document.createElement("button"); 
+          btnResetCounters.textContent = "📊"; 
+          btnResetCounters.className = "btn-reset"; 
+          btnResetCounters.title = t.quickActions.resetCounters; 
+          btnResetCounters.onclick = async (e) => { e.stopPropagation(); await resetStudentCounters(displayName); }; 
+          quickControls.appendChild(btnResetCounters); 
+          const btnEditStudent = document.createElement("button"); 
+          btnEditStudent.textContent = "✏️"; 
+          btnEditStudent.className = "btn-edit-student"; 
+          btnEditStudent.title = "تعديل البيانات"; 
+          btnEditStudent.onclick = async (e) => { e.stopPropagation(); openEditModal(displayName); }; 
+          quickControls.appendChild(btnEditStudent); 
+          const btnDeleteStudent = document.createElement("button"); 
+          btnDeleteStudent.textContent = "🗑️"; 
+          btnDeleteStudent.className = "btn-delete-student"; 
+          btnDeleteStudent.title = t.deleteStudent; 
+          btnDeleteStudent.onclick = async (e) => { e.stopPropagation(); await deleteStudent(displayName); }; 
+          quickControls.appendChild(btnDeleteStudent); 
+          container.appendChild(el); 
+          container.appendChild(quickControls); 
+          return container; 
+      };
+
+      const initStudentsUI = () => { 
+          studentsContainer.innerHTML = ""; 
+          studentNames.forEach((displayName) => { 
+              const displayIndex = studentNames.indexOf(displayName); 
+              const originalName = displayIndex !== -1 ? originalStudentNames[displayIndex] : displayName; 
+              if (!data[originalName]) { 
+                  data[originalName] = { 
+                      state: 0, book: true, notebook: true, homework: true, note: "", 
+                      participationCounter: 0, absenceCounter: 0, badBehaviorCounter: 0, 
+                      talkCounter: 0, talkWithoutPermissionCounter: 0, 
+                      bookNotActiveCounter: 0, notebookNotActiveCounter: 0, 
+                      homeworkNotActiveCounter: 0, latenessCounter: 0 
+                  }; 
+              } 
+              studentsContainer.appendChild(createStudentElement(displayName)); 
+          }); 
+      };
+
+      const createCheckCell = (displayName, key, label) => { 
+          const td = document.createElement("td"); 
+          td.className = "check-cell"; 
+          const displayIndex = studentNames.indexOf(displayName); 
+          const originalName = displayIndex !== -1 ? originalStudentNames[displayIndex] : displayName; 
+          const updateCell = () => { 
+              const studentData = data[originalName] || {}; 
+              const isActive = studentData[key]; 
+              const counterKey = `${key}NotActiveCounter`; 
+              const counterValue = studentData[counterKey] || 0; 
+              td.innerHTML = `<div class="check-cell-content"><span class="check-icon ${isActive ? 'active' : 'inactive'}">${isActive ? '✅' : '❌'}</span><span class="check-counter">${counterValue}</span></div>`; 
+          }; 
+          td.addEventListener("click", async () => { 
+              const studentData = data[originalName] || {}; 
+              const wasActive = studentData[key]; 
+              data[originalName][key] = !wasActive; 
+              const counterKey = `${key}NotActiveCounter`; 
+              if (!wasActive) { 
+                  data[originalName][counterKey] = (data[originalName][counterKey] || 0) + 1; 
+              } else { 
+                  if (data[originalName][counterKey] > 0) data[originalName][counterKey]--; 
+              } 
+              updateCell(); 
+              await saveAll(); 
+              updateTable(); 
+          }); 
+          updateCell(); 
+          return td; 
+      };
+      const createNotesCell = (displayName) => { 
+          const td = document.createElement("td"); 
+          const select = document.createElement("select"); 
+          const t = translations[currentLang]; 
+          const displayIndex = studentNames.indexOf(displayName); 
+          const originalName = displayIndex !== -1 ? originalStudentNames[displayIndex] : displayName; 
+          t.notesOptions.forEach((o) => { 
+              const opt = document.createElement("option"); 
+              opt.value = o; 
+              opt.textContent = o; 
+              select.appendChild(opt); 
+          }); 
+          select.value = data[originalName]?.note || ""; 
+          select.addEventListener("change", async () => { 
+              data[originalName].note = select.value; 
+              await saveAll(); 
+          }); 
+          td.appendChild(select); 
+          return td; 
+      };
+      
+      const createDynamicTextCell = (type, count) => {
+          const td = document.createElement("td");
+          const status = getDynamicStatus(type, count);
+          td.className = `status-text-cell ${status.class}`;
+          td.innerHTML = `
+            <div class="cell-wrapper">
+                <span class="action-label">${status.text}</span>
+                <span class="counter-value">${status.count}</span>
+            </div>
+          `;
+          return td;
+      };
+
+      // === دالة تصدير تقرير العام (Excel احترافي بثلاث أوراق) ===
+      const exportFullHistoryExcel = async () => {
+          if (!currentTeacherId || !currentClass) {
+              showMessage(translations[currentLang].errorSelectTeacher, 'error');
+              return;
+          }
+          const t = translations[currentLang];
+          const teacher = teachersList.find(tch => tch.id === currentTeacherId); 
+          const teacherName = teacher ? teacher.name : "Teacher"; 
+          const className = classOptions[currentClass] ? classOptions[currentClass][currentLang] : currentClass;
+          
+          // إنشاء مصنف وورقة عمل
+          const workbook = new ExcelJS.Workbook();
+          workbook.creator = 'Teacher Dashboard';
+          workbook.lastModifiedBy = 'Teacher';
+          workbook.created = new Date();
+          workbook.modified = new Date();
+
+          // ========== الورقة الأولى: البيانات التفصيلية ==========
+          const worksheetDetail = workbook.addWorksheet('البيانات التفصيلية', {
+              pageSetup: { paperSize: 9, orientation: 'landscape' }
+          });
+
+          // إضافة العنوان
+          worksheetDetail.mergeCells('A1:K1');
+          const titleRow = worksheetDetail.getRow(1);
+          titleRow.getCell(1).value = `📊 ${t.boardTitle} - ${teacherName} - ${className} (تقرير شامل)`;
+          titleRow.getCell(1).font = { bold: true, size: 14 };
+          titleRow.getCell(1).alignment = { horizontal: 'center' };
+
+          worksheetDetail.mergeCells('A2:K2');
+          worksheetDetail.getRow(2).getCell(1).value = `تاريخ التصدير: ${new Date().toLocaleString('ar-SA')}`;
+          worksheetDetail.getRow(2).getCell(1).alignment = { horizontal: 'center' };
+
+          // العناوين
+          const headers = ["التاريخ", "الاسم", "الحالة", "مشاركة", "غياب", "تأخر", "سلوك", "عدم كتاب", "عدم دفتر", "عدم واجب", "ملاحظات"];
+          const headerRow = worksheetDetail.addRow(headers);
+          headerRow.eachCell(cell => {
+              cell.font = { bold: true };
+              cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFE0E7FF' }
+              };
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+
+          // ترتيب التواريخ
+          const sortedDates = Object.keys(allHistoryData).sort();
+          
+          sortedDates.forEach(dateKey => {
+              const dayData = allHistoryData[dateKey];
+              if(dayData) {
+                  studentNames.forEach((name, idx) => {
+                      const originalName = originalStudentNames[idx] || name;
+                      const sData = dayData[originalName];
+                      
+                      if (sData) {
+                          const st = t.states[sData.state || 0];
+                          const row = worksheetDetail.addRow([
+                              dateKey,
+                              name,
+                              st.label,
+                              sData.participationCounter || 0,
+                              sData.absenceCounter || 0,
+                              sData.latenessCounter || 0,
+                              sData.badBehaviorCounter || 0,
+                              sData.bookNotActiveCounter || 0,
+                              sData.notebookNotActiveCounter || 0,
+                              sData.homeworkNotActiveCounter || 0,
+                              sData.note || ""
+                          ]);
+
+                          // تطبيق الألوان بناءً على القيم
+                          // مشاركة
+                          const part = sData.participationCounter || 0;
+                          if (part >= 15) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+                          else if (part >= 12) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } };
+                          else if (part >= 9) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFADD8E6' } };
+                          else if (part >= 6) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFB6C1' } };
+                          else if (part >= 3) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+
+                          // غياب
+                          const abs = sData.absenceCounter || 0;
+                          if (abs >= 7) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (abs >= 5) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (abs >= 3) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                          else if (abs >= 1) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+
+                          // تأخر
+                          const lat = sData.latenessCounter || 0;
+                          if (lat >= 5) row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (lat >= 3) row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (lat >= 1) row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+
+                          // سلوك
+                          const behav = sData.badBehaviorCounter || 0;
+                          if (behav >= 12) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (behav >= 9) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (behav >= 5) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                          else if (behav >= 3) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+
+                          // عدم إحضار الكتاب
+                          const bookCount = sData.bookNotActiveCounter || 0;
+                          if (bookCount >= 8) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (bookCount >= 6) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (bookCount >= 4) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                          else if (bookCount >= 2) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+
+                          // عدم إحضار الدفتر
+                          const notebookCount = sData.notebookNotActiveCounter || 0;
+                          if (notebookCount >= 8) row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (notebookCount >= 6) row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (notebookCount >= 4) row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                          else if (notebookCount >= 2) row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+
+                          // عدم حل الواجب
+                          const homeworkCount = sData.homeworkNotActiveCounter || 0;
+                          if (homeworkCount >= 8) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+                          else if (homeworkCount >= 6) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+                          else if (homeworkCount >= 4) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                          else if (homeworkCount >= 2) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+                      }
+                  });
+              }
+          });
+
+          // ضبط عرض الأعمدة
+          worksheetDetail.columns = [
+              { width: 12 }, // التاريخ
+              { width: 20 }, // الاسم
+              { width: 25 }, // الحالة
+              { width: 10 }, // مشاركة
+              { width: 8 },  // غياب
+              { width: 8 },  // تأخر
+              { width: 8 },  // سلوك
+              { width: 12 }, // عدم كتاب
+              { width: 12 }, // عدم دفتر
+              { width: 12 }, // عدم واجب
+              { width: 30 }  // ملاحظات
+          ];
+
+          // ========== الورقة الثانية: ملخص الطلاب ==========
+          const worksheetSummary = workbook.addWorksheet('ملخص الطلاب');
+
+          worksheetSummary.mergeCells('A1:I1');
+          const summaryTitle = worksheetSummary.getRow(1);
+          summaryTitle.getCell(1).value = `ملخص أداء الطلاب - ${teacherName} - ${className}`;
+          summaryTitle.getCell(1).font = { bold: true, size: 14 };
+          summaryTitle.getCell(1).alignment = { horizontal: 'center' };
+
+          // رأس الجدول
+          const summaryHeaders = ["الاسم", "إجمالي مشاركات", "إجمالي غياب", "إجمالي تأخر", "إجمالي سلوك", "إجمالي عدم كتاب", "إجمالي عدم دفتر", "إجمالي عدم واجب", "عدد الأيام"];
+          const summaryHeaderRow = worksheetSummary.addRow(summaryHeaders);
+          summaryHeaderRow.eachCell(cell => {
+              cell.font = { bold: true };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+              cell.alignment = { horizontal: 'center' };
+          });
+
+          // تجميع البيانات لكل طالب
+          const studentTotals = {};
+          originalStudentNames.forEach(name => { studentTotals[name] = { participation:0, absence:0, lateness:0, behavior:0, book:0, notebook:0, homework:0, days:0 }; });
+
+          sortedDates.forEach(dateKey => {
+              const dayData = allHistoryData[dateKey];
+              if(dayData) {
+                  originalStudentNames.forEach(name => {
+                      const sData = dayData[name];
+                      if (sData) {
+                          studentTotals[name].participation += sData.participationCounter || 0;
+                          studentTotals[name].absence += sData.absenceCounter || 0;
+                          studentTotals[name].lateness += sData.latenessCounter || 0;
+                          studentTotals[name].behavior += sData.badBehaviorCounter || 0;
+                          studentTotals[name].book += sData.bookNotActiveCounter || 0;
+                          studentTotals[name].notebook += sData.notebookNotActiveCounter || 0;
+                          studentTotals[name].homework += sData.homeworkNotActiveCounter || 0;
+                          studentTotals[name].days++;
+                      }
+                  });
+              }
+          });
+
+          // إضافة صفوف لكل طالب
+          originalStudentNames.forEach((originalName, idx) => {
+              const displayName = studentNames[idx] || originalName;
+              const totals = studentTotals[originalName] || {};
+              const row = worksheetSummary.addRow([
+                  displayName,
+                  totals.participation || 0,
+                  totals.absence || 0,
+                  totals.lateness || 0,
+                  totals.behavior || 0,
+                  totals.book || 0,
+                  totals.notebook || 0,
+                  totals.homework || 0,
+                  totals.days || 0
+              ]);
+
+              // تلوين الخلايا حسب القيم (أخضر للمشاركات المرتفعة، أحمر للسلوكيات السلبية المرتفعة)
+              if (totals.participation >= 50) row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } };
+              else if (totals.participation >= 30) row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } };
+              if (totals.absence >= 10) row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.absence >= 5) row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+              if (totals.lateness >= 10) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.lateness >= 5) row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+              if (totals.behavior >= 20) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.behavior >= 10) row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+              if (totals.book >= 15) row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.book >= 8) row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+              if (totals.notebook >= 15) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.notebook >= 8) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+              if (totals.homework >= 15) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+              else if (totals.homework >= 8) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFA500' } };
+          });
+
+          worksheetSummary.columns = [
+              { width: 25 }, // الاسم
+              { width: 15 }, // مشاركات
+              { width: 12 }, // غياب
+              { width: 12 }, // تأخر
+              { width: 12 }, // سلوك
+              { width: 15 }, // عدم كتاب
+              { width: 15 }, // عدم دفتر
+              { width: 15 }, // عدم واجب
+              { width: 12 }  // عدد الأيام
+          ];
+
+          // ========== الورقة الثالثة: إحصائيات عامة ==========
+          const worksheetStats = workbook.addWorksheet('إحصائيات عامة');
+
+          worksheetStats.mergeCells('A1:F1');
+          const statsTitle = worksheetStats.getRow(1);
+          statsTitle.getCell(1).value = `إحصائيات عامة - ${teacherName} - ${className}`;
+          statsTitle.getCell(1).font = { bold: true, size: 14 };
+          statsTitle.getCell(1).alignment = { horizontal: 'center' };
+
+          // حساب الإجماليات
+          let totalParticipation = 0, totalAbsence = 0, totalLateness = 0, totalBehavior = 0;
+          let totalBook = 0, totalNotebook = 0, totalHomework = 0;
+          let totalDays = sortedDates.length;
+          originalStudentNames.forEach(name => {
+              const t = studentTotals[name] || {};
+              totalParticipation += t.participation || 0;
+              totalAbsence += t.absence || 0;
+              totalLateness += t.lateness || 0;
+              totalBehavior += t.behavior || 0;
+              totalBook += t.book || 0;
+              totalNotebook += t.notebook || 0;
+              totalHomework += t.homework || 0;
+          });
+
+          // إحصائيات أولية
+          worksheetStats.addRow(["البند", "القيمة"]);
+          worksheetStats.addRow(["عدد الطلاب", originalStudentNames.length]);
+          worksheetStats.addRow(["عدد الأيام المسجلة", totalDays]);
+          worksheetStats.addRow(["إجمالي المشاركات", totalParticipation]);
+          worksheetStats.addRow(["إجمالي الغياب", totalAbsence]);
+          worksheetStats.addRow(["إجمالي التأخر", totalLateness]);
+          worksheetStats.addRow(["إجمالي السلوك الخاطئ", totalBehavior]);
+          worksheetStats.addRow(["إجمالي عدم إحضار الكتاب", totalBook]);
+          worksheetStats.addRow(["إجمالي عدم إحضار الدفتر", totalNotebook]);
+          worksheetStats.addRow(["إجمالي عدم حل الواجب", totalHomework]);
+
+          // نسب مئوية (مثلاً متوسط المشاركة لكل طالب في اليوم)
+          const avgParticipationPerStudentPerDay = totalDays > 0 ? (totalParticipation / originalStudentNames.length / totalDays).toFixed(2) : 0;
+          worksheetStats.addRow(["متوسط المشاركة لكل طالب في اليوم", avgParticipationPerStudentPerDay]);
+
+          // توزيع المشاركات (فئات)
+          worksheetStats.addRow([]);
+          worksheetStats.addRow(["توزيع المشاركات (عدد الطلاب حسب الفئة)"]);
+          worksheetStats.addRow(["أقل من 10", "10-19", "20-29", "30-49", "50 فأكثر"]);
+          const partDist = [0,0,0,0,0];
+          originalStudentNames.forEach(name => {
+              const p = studentTotals[name]?.participation || 0;
+              if (p < 10) partDist[0]++;
+              else if (p < 20) partDist[1]++;
+              else if (p < 30) partDist[2]++;
+              else if (p < 50) partDist[3]++;
+              else partDist[4]++;
+          });
+          worksheetStats.addRow(partDist);
+
+          // أكثر الطلاب تميزًا (أعلى 3 في المشاركات)
+          worksheetStats.addRow([]);
+          worksheetStats.addRow(["أكثر الطلاب مشاركة:"]);
+          const sortedByParticipation = originalStudentNames.map((name, idx) => ({ name: studentNames[idx] || name, val: studentTotals[name]?.participation || 0 })).sort((a,b) => b.val - a.val).slice(0,3);
+          sortedByParticipation.forEach((item, i) => {
+              worksheetStats.addRow([`${i+1}. ${item.name}`, item.val]);
+          });
+
+          // أكثر الطلاب غيابًا
+          worksheetStats.addRow([]);
+          worksheetStats.addRow(["أكثر الطلاب غيابًا:"]);
+          const sortedByAbsence = originalStudentNames.map((name, idx) => ({ name: studentNames[idx] || name, val: studentTotals[name]?.absence || 0 })).sort((a,b) => b.val - a.val).slice(0,3);
+          sortedByAbsence.forEach((item, i) => {
+              worksheetStats.addRow([`${i+1}. ${item.name}`, item.val]);
+          });
+
+          // أكثر الطلاب عدم إحضار كتاب
+          worksheetStats.addRow([]);
+          worksheetStats.addRow(["أكثر الطلاب عدم إحضار كتاب:"]);
+          const sortedByBook = originalStudentNames.map((name, idx) => ({ name: studentNames[idx] || name, val: studentTotals[name]?.book || 0 })).sort((a,b) => b.val - a.val).slice(0,3);
+          sortedByBook.forEach((item, i) => {
+              worksheetStats.addRow([`${i+1}. ${item.name}`, item.val]);
+          });
+
+          // تنسيق ورقة الإحصائيات
+          worksheetStats.columns = [{ width: 30 }, { width: 20 }];
+
+          // تصدير الملف
+          try {
+              const buffer = await workbook.xlsx.writeBuffer();
+              const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = `تقرير_عام_${teacherName}_${className}.xlsx`;
+              link.click();
+              URL.revokeObjectURL(link.href);
+          } catch (error) {
+              console.error(error);
+              alert(currentLang === 'ar' ? "حدث خطأ في التصدير" : "Error exporting file");
+          }
+      };
+
+      const updateTable = () => {
+        tbody.innerHTML = ""; const t = translations[currentLang];
+        studentNames.forEach((displayName, displayIndex) => {
+          const originalName = originalStudentNames[displayIndex] || displayName; const studentData = data[originalName] || {}; const stIdx = studentData.state || 0; const st = t.states[stIdx]; const row = document.createElement("tr"); const trophy = stIdx === 1 ? "🏆" : "";
+          const nameCell = document.createElement("td"); const nameSpan = document.createElement("span"); nameSpan.textContent = `${displayName} ${trophy}`; nameSpan.style.fontWeight = "bold";
+          const quickActions = document.createElement("div"); quickActions.className = "table-quick-actions";
+          const btnTableParticipate = document.createElement("button"); btnTableParticipate.textContent = "👋"; btnTableParticipate.title = t.quickActions.participate; btnTableParticipate.onclick = async (e) => { e.stopPropagation(); await setStudentState(displayName, 1); };
+          const btnTableTalk = document.createElement("button"); btnTableTalk.textContent = "🗣️"; btnTableTalk.title = t.quickActions.talk; btnTableTalk.onclick = async (e) => { e.stopPropagation(); await setStudentState(displayName, 2); };
+          const btnTableAbsent = document.createElement("button"); btnTableAbsent.textContent = "❌"; btnTableAbsent.title = t.quickActions.absent; btnTableAbsent.onclick = async (e) => { e.stopPropagation(); await setStudentState(displayName, 5); };
+          const btnTableLateness = document.createElement("button"); btnTableLateness.textContent = "⏰"; btnTableLateness.title = t.quickActions.lateness; btnTableLateness.style.background = "#a855f7"; btnTableLateness.style.color="white"; btnTableLateness.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'latenessCounter', 'msgLateness'); };
+          const btnTableReset = document.createElement("button"); btnTableReset.textContent = "🔄"; btnTableReset.title = t.quickActions.resetCounters; btnTableReset.onclick = async (e) => { e.stopPropagation(); await resetStudentCounters(displayName); };
+          const btnTableDelete = document.createElement("button"); btnTableDelete.textContent = "🗑️"; btnTableDelete.title = t.deleteStudent; btnTableDelete.style.color = "red"; btnTableDelete.onclick = async (e) => { e.stopPropagation(); await deleteStudent(displayName); };
+          const btnTableBook = document.createElement("button"); btnTableBook.className = "table-counter-btn"; btnTableBook.textContent = "📗 +"; btnTableBook.title = t.notBringingBook; btnTableBook.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'bookNotActiveCounter', 'notBringingBook'); };
+          const btnTableNotebook = document.createElement("button"); btnTableNotebook.className = "table-counter-btn"; btnTableNotebook.textContent = "📒 +"; btnTableNotebook.title = t.notBringingNotebook; btnTableNotebook.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'notebookNotActiveCounter', 'notBringingNotebook'); };
+          const btnTableHomework = document.createElement("button"); btnTableHomework.className = "table-counter-btn"; btnTableHomework.textContent = "📘 +"; btnTableHomework.title = t.notDoingHomework; btnTableHomework.onclick = async (e) => { e.stopPropagation(); await incrementCounter(displayName, 'homeworkNotActiveCounter', 'notDoingHomework'); };
+          const btnTableEdit = document.createElement("button"); btnTableEdit.textContent = "✏️"; btnTableEdit.title = "تعديل البيانات"; btnTableEdit.style.background = "#f59e0b"; btnTableEdit.style.color = "white"; btnTableEdit.onclick = async (e) => { e.stopPropagation(); openEditModal(displayName); };
+          quickActions.appendChild(btnTableParticipate); quickActions.appendChild(btnTableTalk); quickActions.appendChild(btnTableAbsent); quickActions.appendChild(btnTableLateness); quickActions.appendChild(btnTableReset); quickActions.appendChild(btnTableDelete);
+          quickActions.appendChild(btnTableBook); quickActions.appendChild(btnTableNotebook); quickActions.appendChild(btnTableHomework); quickActions.appendChild(btnTableEdit);
+          nameCell.appendChild(nameSpan); nameCell.appendChild(quickActions); row.appendChild(nameCell);
+          
+          const ratingCell = document.createElement("td"); ratingCell.innerHTML = `⭐`.repeat(st.stars) + ` <span class="stars-count">${st.stars}</span>`; row.appendChild(ratingCell);
+          row.appendChild(createStatusCell(stIdx === 1, "✔")); row.appendChild(createStatusCell(stIdx === 2, "✔")); row.appendChild(createStatusCell(stIdx === 3, "✔")); row.appendChild(createStatusCell(stIdx === 4, "✔"));
+          const tdLateness = document.createElement("td"); tdLateness.textContent = (studentData.latenessCounter || 0) > 0 ? "✔" : ""; tdLateness.style.fontWeight = "bold"; tdLateness.style.fontSize = "14px"; row.appendChild(tdLateness);
+          
+          const attendanceCell = document.createElement("td"); attendanceCell.textContent = stIdx === 5 ? t.attendanceText[1] : t.attendanceText[0]; attendanceCell.style.fontWeight = "bold"; attendanceCell.style.color = stIdx === 5 ? "#ef4444" : "#22c55e"; row.appendChild(attendanceCell);
+          row.appendChild(createCheckCell(displayName, "book", t.book)); row.appendChild(createCheckCell(displayName, "notebook", t.notebook)); row.appendChild(createCheckCell(displayName, "homework", t.homework));
+          row.appendChild(createNotesCell(displayName));
+          const tdStatus = document.createElement("td"); tdStatus.textContent = st.label; tdStatus.style.fontWeight = "bold"; tdStatus.style.color = st.color; row.appendChild(tdStatus);
+          
+          row.appendChild(createDynamicTextCell('participation', studentData.participationCounter || 0));
+          
+          const gParticipation = studentData.participationCounter || 0; let baseLevel = t.levels[0]; if (gParticipation >= 70) baseLevel = t.levels[5]; else if (gParticipation >= 50) baseLevel = t.levels[4]; else if (gParticipation >= 30) baseLevel = t.levels[3]; else if (gParticipation >= 25) baseLevel = t.levels[2]; else if (gParticipation >= 10) baseLevel = t.levels[1];
+          const levelPercentages = { [t.levels[0]]: 10, [t.levels[1]]: 35, [t.levels[2]]: 60, [t.levels[3]]: 75, [t.levels[4]]: 85, [t.levels[5]]: 95 }; const pPercentage = levelPercentages[baseLevel] || 10;
+          const tdLevel = document.createElement("td"); tdLevel.textContent = baseLevel; tdLevel.className = `level-${baseLevel}`; row.appendChild(tdLevel);
+          const tdProgress = document.createElement("td"); tdProgress.innerHTML = `<span class="progress-percentage">${pPercentage}%</span>`; row.appendChild(tdProgress);
+          
+          row.appendChild(createDynamicTextCell('absence', studentData.absenceCounter || 0));
+          row.appendChild(createDynamicTextCell('talking', studentData.talkCounter || 0));
+          const tdTalkWithoutPermission = document.createElement("td"); tdTalkWithoutPermission.textContent = studentData.talkWithoutPermissionCounter || 0; row.appendChild(tdTalkWithoutPermission);
+          row.appendChild(createDynamicTextCell('book', studentData.bookNotActiveCounter || 0));
+          row.appendChild(createDynamicTextCell('notebook', studentData.notebookNotActiveCounter || 0));
+          row.appendChild(createDynamicTextCell('homework', studentData.homeworkNotActiveCounter || 0));
+          row.appendChild(createDynamicTextCell('behavior', studentData.badBehaviorCounter || 0));
+          
+          row.appendChild(createDynamicTextCell('lateness', studentData.latenessCounter || 0));
+          
+          tbody.appendChild(row);
+        });
+      };
+
+      const createStatusCell = (isActive, symbol) => { const td = document.createElement("td"); td.textContent = isActive ? symbol : ""; td.style.fontWeight = "bold"; td.style.fontSize = "14px"; return td; };
+      const showTrophy = () => { const trophy = document.getElementById("trophyPopup"); trophy.classList.add("show"); setTimeout(() => { trophy.classList.remove("show"); }, 1500); };
+
+      document.getElementById("importExcel").addEventListener("change", async (e) => { if (!currentTeacherId || !currentClass) { alert(translations[currentLang].errorSelectTeacher + "\n" + translations[currentLang].errorSelectClass); return; } const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (evt) => { try { const wb = XLSX.read(evt.target.result, { type: "binary" }); const sheet = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }); let importedNames = rows.map((r) => r[0]).filter(Boolean).map(name => name.toString().trim()); originalStudentNames = importedNames; updateDisplayNames(); ensureAllStudentsInData(); // تأكد من وجود جميع الطلاب في اليوم الحالي
+          initStudentsUI(); updateTable(); await saveAll(); alert(currentLang === 'ar' ? `تم تحميل ${originalStudentNames.length} طالب بنجاح` : `Successfully loaded ${originalStudentNames.length} students`); } catch (error) { alert(currentLang === 'ar' ? "حدث خطأ في تحميل الملف" : "Error loading file"); console.error(error); } }; reader.readAsBinaryString(file); });
+
+      document.getElementById("exportExcel").addEventListener("click", () => {
+        if (!currentTeacherId || !currentClass) { alert(currentLang === 'ar' ? "الرجاء اختيار المعلم والقسم أولاً" : "Please select Teacher and Class first."); return; }
+        const t = translations[currentLang]; const rows = []; const currentSelDate = selectedDate;
+        const days = currentLang === 'ar' ? ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayName = days[currentSelDate.getDay()]; const dateString = currentSelDate.toLocaleDateString(currentLang === 'ar' ? "ar-SA" : "en-US"); const timeString = new Date().toLocaleTimeString();
+        const teacher = teachersList.find(tch => tch.id === currentTeacherId); const teacherName = teacher ? teacher.name : "Teacher"; const teacherSubject = teacher ? teacher.subject : "Subject"; const className = classOptions[currentClass] ? classOptions[currentClass][currentLang] : currentClass; let boardTitle = boardTitleEl.textContent.replace(`${t.boardTitle} - `, ''); const dateFileKey = formattedSelectedDate();
+        rows.push([t.excelTitle(dateString, dayName, timeString, boardTitle, teacherName, teacherSubject)]); rows.push([]); rows.push([t.copyrightText]); rows.push([]); 
+        const headers = [t.name, t.rating, t.goodParticipation, t.talkingInClass, t.notParticipating, t.behavior, t.lateness, t.attendance, t.book, t.notebook, t.homework, t.notes, t.status, t.participationCounter, t.level, t.progressPercentage, t.absenceCounter, t.talkingCounter, t.talkWithoutPermission, t.bookNotActive, t.notebookNotActive, t.homeworkNotActive, t.badBehaviorCounter, t.latenessCounter];
+        rows.push(headers);
+        studentNames.forEach((displayName, displayIndex) => {
+          const originalName = originalStudentNames[displayIndex] || displayName; const studentData = data[originalName] || {}; const stIdx = studentData.state || 0; const st = t.states[stIdx]; const trophy = stIdx === 1 ? "🏆" : ""; const gParticipation = studentData.participationCounter || 0; let baseLevel = t.levels[0]; if (gParticipation >= 70) baseLevel = t.levels[5]; else if (gParticipation >= 50) baseLevel = t.levels[4]; else if (gParticipation >= 30) baseLevel = t.levels[3]; else if (gParticipation >= 25) baseLevel = t.levels[2]; else if (gParticipation >= 10) baseLevel = t.levels[1];
+          const levelPercentages = { [t.levels[0]]: 10, [t.levels[1]]: 35, [t.levels[2]]: 60, [t.levels[3]]: 75, [t.levels[4]]: 85, [t.levels[5]]: 95 }; const pPercentage = levelPercentages[baseLevel] || 10;
+          const rowData = [`${displayName} ${trophy}`, st.stars, stIdx === 1 ? "✔" : "", stIdx === 2 ? "✔" : "", stIdx === 3 ? "✔" : "", stIdx === 4 ? "✔" : "", (studentData.latenessCounter || 0) > 0 ? "⏰" : "", stIdx === 5 ? t.attendanceText[1] : t.attendanceText[0], studentData.book ? "✅" : "❌", studentData.notebook ? "✅" : "❌", studentData.homework ? "✅" : "❌", studentData.note || "", st.label, studentData.participationCounter || 0, baseLevel, `${pPercentage}%`, studentData.absenceCounter || 0, studentData.talkCounter || 0, studentData.talkWithoutPermissionCounter || 0, studentData.bookNotActiveCounter || 0, studentData.notebookNotActiveCounter || 0, studentData.homeworkNotActiveCounter || 0, studentData.badBehaviorCounter || 0, studentData.latenessCounter || 0];
+          rows.push(rowData);
+        });
+        rows.push([]); rows.push([currentLang === 'ar' ? "ملخص الإحصائيات:" : "Statistics Summary:"]); const totalStudents = studentNames.length; const totalParticipation = originalStudentNames.reduce((sum, name) => sum + (data[name]?.participationCounter || 0), 0); const totalAbsence = originalStudentNames.reduce((sum, name) => sum + (data[name]?.absenceCounter || 0), 0);
+        rows.push([currentLang === 'ar' ? "عدد الطلاب:" : "Total Students:", totalStudents]); rows.push([currentLang === 'ar' ? "إجمالي المشاركات:" : "Total Participations:", totalParticipation]); rows.push([currentLang === 'ar' ? "إجمالي الغياب:" : "Total Absences:", totalAbsence]);
+        try { const ws = XLSX.utils.aoa_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, currentLang === 'ar' ? "كشف المتابعة" : "Tracking Report"); ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } }, { s: { r: 2, c: 0 }, e: { r: 2, c: headers.length - 1 } } ]; XLSX.writeFile(wb, t.excelFileName(teacherName, currentClass, dateFileKey)); } catch (error) { alert(currentLang === 'ar' ? "حدث خطأ في التصدير" : "Error exporting file"); console.error(error); }
+      });
+
+      useLocalBtn.addEventListener("click", () => setStorageMode('local')); useCloudBtn.addEventListener("click", () => setStorageMode('cloud')); syncDataBtn.addEventListener("click", syncData); loginBtn.addEventListener("click", () => { if (currentUser) logout(); else showLoginForm(); }); submitLogin.addEventListener("click", loginWithEmail); registerBtn.addEventListener("click", registerWithEmail); anonLogin.addEventListener("click", loginAnonymously); cancelLogin.addEventListener("click", hideLoginForm); teacherSelect.addEventListener("change", (e) => selectTeacher(e.target.value)); classSelect.addEventListener("change", (e) => selectClass(e.target.value)); document.getElementById("switchToAr").addEventListener("click", () => applyLanguage('ar')); document.getElementById("switchToEn").addEventListener("click", () => applyLanguage('en')); classTitleInput.addEventListener("input", async () => { const t = translations[currentLang]; boardTitleEl.textContent = `${t.boardTitle} - ${classTitleInput.value}`; await saveAll(); }); studentsContainer.addEventListener('click', (e) => { const t = e.target.closest('.student'); if (!t) return; if (selectedStudent) { const old = document.querySelector(`.student[data-name="${selectedStudent}"]`); if (old) old.classList.remove('selected'); } selectedStudent = t.dataset.name; t.classList.add('selected'); });
+      
+      // تغيير وظيفة زر العام ليقوم بتصدير Excel ملون
+      document.getElementById('showYearReportBtn').addEventListener('click', exportFullHistoryExcel);
+      
+      document.addEventListener('keydown', async (e) => { if (!selectedStudent) return; if (e.key === '1') await setStudentState(selectedStudent, 1); if (e.key === '2') await setStudentState(selectedStudent, 2); if (e.key === '3') await setStudentState(selectedStudent, 3); if (e.key === '4') await setStudentState(selectedStudent, 4); if (e.key === '5') await setStudentState(selectedStudent, 5); if (e.key === '0') await setStudentState(selectedStudent, 0); if (e.key === 'l' || e.key === 'L') await incrementCounter(selectedStudent, 'latenessCounter', 'msgLateness'); if (e.key.toLowerCase() === 'r') await resetStudentCounters(selectedStudent); if (e.key === 'Escape') { const t = document.querySelector(`.student[data-name="${selectedStudent}"]`); if (t) t.classList.remove('selected'); selectedStudent = null; } });
+
+      initTeacherSelect(); applyLanguage(currentLang); renderCalendar(); if (isFirebaseInitialized) { initializeFirebaseAuth(); updateFirebaseUI(); }
+
+      // ===== التعديل رقم 3: تحميل البيانات تلقائياً عند فتح الصفحة =====
+      setTimeout(() => {
+          if (currentTeacherId && currentClass) {
+              loadData();
+              console.log("✅ تم تحميل البيانات تلقائياً عند فتح الصفحة");
+          }
+      }, 800);
+
+    });
+  </script>
+</body>
+</html>
